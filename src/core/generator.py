@@ -463,19 +463,21 @@ class Generator:
         self.lap_at_sc = max(self.ir["CarIdxLap"])
 
         # Manage wave arounds and pace laps
-        waves_done = False
-        pace_done = False
-        while not waves_done or not pace_done:
+        done = {
+            "wave_arounds": False,
+            "pace_laps": False
+        }
+        while not all(done.values()):
             # Get the current lap behind safety car
             self._get_current_lap_under_sc()
 
             # If wave arounds aren't done, send the wave arounds
-            if not waves_done:
-                waves_done = self._send_wave_arounds()
+            if not done["wave_arounds"]:
+                done["wave_arounds"] = self._send_wave_arounds()
 
             # If pace laps aren't done, send the pace laps
-            if not pace_done:
-                pace_done = self._send_pacelaps()
+            if not done["pace_laps"]:
+                done["pace_laps"] = self._send_pacelaps()
 
             # Break the loop if we are shutting down the thread
             if self._is_shutting_down():
