@@ -280,6 +280,41 @@ class Generator:
         # Shutdown the iRacing SDK after all safety car events are complete
         self.ir.shutdown()
 
+    def _send_delayed_wave_arounds(self):
+        """Send the delayed wave arounds to iRacing if there are any.
+        
+        Args:
+            None
+
+        Returns:
+            True if the delayed wave around list is empty, False otherwised
+        """
+        # Send the wave chat command for each car no longer in pits
+        cars_to_wave = []
+        for car in self.delayed_wave_arounds:
+            if not self.ir["CarIdxOnPitRoad"][car]: # NOTE: This won't work yet! We need the car index, not car number
+                cars_to_wave.append(car)
+
+        # If there are no cars to wave, return False (may be more later)
+        if len(cars_to_wave) == 0:
+            return False
+        
+        # Send the wave chat command for each car
+        for car in cars_to_wave:
+            logging.info(f"Sending delayed wave around command for car {car}")
+            self.ir_window.set_focus()
+            self.ir.chat_command(1)
+            time.sleep(0.5)
+            self.ir_window.type_keys(
+                f"!w {car}{{ENTER}}", with_spaces=True
+            )
+
+            # Remove the car from the delayed wave arounds list
+            self.delayed_wave_arounds.remove(car)
+
+        # Return True if the delayed wave around list is empty, False otherwise
+        return len(self.delayed_wave_arounds) == 0
+
     def _send_pacelaps(self):
         """Send a pacelaps chat command to iRacing.
         
