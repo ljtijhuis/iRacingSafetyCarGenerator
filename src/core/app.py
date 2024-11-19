@@ -722,6 +722,9 @@ class App(tk.Tk):
         self.var_wave_arounds.set(
             self.settings["settings"].getboolean("wave_arounds")
         )
+        self.var_delay_waves.set(
+            self.settings["settings"].getboolean("delay_waves")
+        )
         self.ent_laps_before_wave_arounds.delete(0, "end")
         self.ent_laps_before_wave_arounds.insert(
             0,
@@ -762,6 +765,7 @@ class App(tk.Tk):
         min_time_between = self.ent_min_time_between.get()
         laps_under_sc = self.ent_laps_under_sc.get()
         wave_arounds = self.var_wave_arounds.get()
+        delay_waves = self.var_delay_waves.get()
         laps_before_wave_arounds = self.ent_laps_before_wave_arounds.get()
 
         # Save the settings to the config file
@@ -781,6 +785,7 @@ class App(tk.Tk):
         self.settings["settings"]["min_time_between"] = str(min_time_between)
         self.settings["settings"]["laps_under_sc"] = str(laps_under_sc)
         self.settings["settings"]["wave_arounds"] = str(wave_arounds)
+        self.settings["settings"]["delay_waves"] = str(delay_waves)
         self.settings["settings"]["laps_before_wave_arounds"] = str(
             laps_before_wave_arounds
         )
