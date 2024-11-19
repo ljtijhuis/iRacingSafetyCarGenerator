@@ -29,6 +29,7 @@ class Generator:
         self.total_random_sc_events = 0
         self.lap_at_sc = None
         self.current_lap_under_sc = None
+        self.delayed_wave_arounds = []
 
         # Create a shutdown event
         self.shutdown_event = threading.Event()
@@ -418,6 +419,14 @@ class Generator:
 
             # If the driver number is not None, add it to the list
             if driver_number is not None:
+                # Delay wave to cars in pits if delayed waves are enabled
+                if self.master.settings["settings"]["delay_waves"] == "1":
+                    # If the driver is in the pits, delay the wave around
+                    if self.drivers.current_drivers[i]["CarIdxOnPitRoad"]:
+                        self.delayed_wave_arounds.append(driver_number)
+                        continue
+                
+                # Otherwise, add the driver number to the list to wave now
                 cars_to_wave.append(driver_number)
 
         # Send the wave chat command for each car
