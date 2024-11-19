@@ -557,6 +557,29 @@ class App(tk.Tk):
         )
         general_row += 1
 
+        # Create delay waves for cars in pit checkbox
+        logging.debug("Creating delay waves for cars in pit checkbox")
+        self.var_delay_pit = tk.IntVar()
+        self.var_delay_pit.set(1)
+        self.chk_delay_pit = ttk.Checkbutton(
+            self.frm_general,
+            text="Delay waves for cars in pit",
+            variable=self.var_delay_pit
+        )
+        self.chk_delay_pit.grid(
+            row=general_row,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=5,
+            pady=5
+        )
+        tooltip.CreateToolTip(
+            self.chk_delay_pit,
+            self.tooltips_text.get("delay_pit")
+        )
+        general_row += 1
+
         # Create laps before wave arounds entry
         logging.debug("Creating laps before wave arounds entry")
         self.lbl_laps_before_wave_arounds = ttk.Label(
