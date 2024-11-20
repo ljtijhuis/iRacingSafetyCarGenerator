@@ -481,6 +481,9 @@ class Generator:
                 if self.master.settings["settings"]["delay_waves"] == "1":
                     # If the driver is in the pits, delay the wave around
                     if self.ir["CarIdxOnPitRoad"][i]:
+                        logging.debug(
+                            f"Delaying wave around for car {driver_number}"
+                        )
                         self.delayed_wave_arounds.append(driver_number)
                         continue
                 
