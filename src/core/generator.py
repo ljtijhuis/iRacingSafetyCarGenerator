@@ -308,7 +308,6 @@ class Generator:
         Returns:
             True if the delayed wave around list is empty, False otherwised
         """
-        print(self.delayed_wave_arounds)
         # Send the wave chat command for each car no longer in pits
         cars_to_wave = []
         for car in self.delayed_wave_arounds:
@@ -317,7 +316,6 @@ class Generator:
             
             # Check if still on pit road, if not, add to wave list
             if not self.ir["CarIdxOnPitRoad"][car_idx]:
-                print(f"Car {car} no longer on pit road")
                 cars_to_wave.append(car)
 
         # If there are no cars to wave, return False (may be more later)
