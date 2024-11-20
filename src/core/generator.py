@@ -180,6 +180,25 @@ class Generator:
         if len(off_track_cars) >= threshold:
             self._start_safety_car(message)
 
+    def _get_driver_index(self, number):
+        """Get the driver index from the iRacing SDK.
+
+        Args:
+            number: The driver number
+
+        Returns:
+            The driver index, or None if not found
+        """
+        logging.debug(f"Getting driver index for number {number}")
+
+        # Get the driver index from the iRacing SDK
+        for driver in self.ir["DriverInfo"]["Drivers"]:
+            if driver["CarNumber"] == number:
+                return driver["CarIdx"]
+        
+        # If the driver index wasn't found, return None
+        return None
+
     def _get_driver_number(self, id):
         """Get the driver number from the iRacing SDK.
 
@@ -289,17 +308,16 @@ class Generator:
         Returns:
             True if the delayed wave around list is empty, False otherwised
         """
+        print(self.delayed_wave_arounds)
         # Send the wave chat command for each car no longer in pits
         cars_to_wave = []
         for car in self.delayed_wave_arounds:
             # Get the car index for the current car
-            for driver in self.ir["DriverInfo"]["Drivers"]:
-                if driver["CarNumber"] == car:
-                    car = driver["CarIdx"]
-                    break
+            car_idx = self._get_driver_index(car)
             
             # Check if still on pit road, if not, add to wave list
-            if not self.ir["CarIdxOnPitRoad"][car]:
+            if not self.ir["CarIdxOnPitRoad"][car_idx]:
+                print(f"Car {car} no longer on pit road")
                 cars_to_wave.append(car)
 
         # If there are no cars to wave, return False (may be more later)
