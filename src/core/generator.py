@@ -311,7 +311,7 @@ class Generator:
             logging.info(f"Sending delayed wave around command for car {car}")
             self.ir_window.set_focus()
             self.ir.chat_command(1)
-            time.sleep(0.5)
+            time.sleep(1)
             self.ir_window.type_keys(
                 f"!w {car}{{ENTER}}", with_spaces=True
             )
@@ -363,7 +363,7 @@ class Generator:
                 logging.info("Sending pacelaps command")
                 self.ir_window.set_focus()
                 self.ir.chat_command(1)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.ir_window.type_keys(
                     f"!p {laps_under_sc - 1}{{ENTER}}",
                     with_spaces=True
@@ -477,7 +477,7 @@ class Generator:
                 logging.info(f"Sending wave around command for car {car}")
                 self.ir_window.set_focus()
                 self.ir.chat_command(1)
-                time.sleep(0.5)
+                time.sleep(1)
                 self.ir_window.type_keys(
                     f"!w {car}{{ENTER}}", with_spaces=True
                 )
@@ -496,7 +496,7 @@ class Generator:
         # Send yellow flag chat command
         self.ir_window.set_focus()
         self.ir.chat_command(1)
-        time.sleep(0.5)
+        time.sleep(1)
         self.ir_window.type_keys(f"!y {message}{{ENTER}}", with_spaces=True)
 
         # Set the UI message
