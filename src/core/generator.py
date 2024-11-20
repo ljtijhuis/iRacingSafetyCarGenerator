@@ -292,7 +292,14 @@ class Generator:
         # Send the wave chat command for each car no longer in pits
         cars_to_wave = []
         for car in self.delayed_wave_arounds:
-            if not self.ir["CarIdxOnPitRoad"][car]: # NOTE: This won't work yet! We need the car index, not car number
+            # Get the car index for the current car
+            for driver in self.ir["DriverInfo"]["Drivers"]:
+                if driver["CarNumber"] == car:
+                    car = driver["CarIdx"]
+                    break
+            
+            # Check if still on pit road, if not, add to wave list
+            if not self.ir["CarIdxOnPitRoad"][car]:
                 cars_to_wave.append(car)
 
         # If there are no cars to wave, return False (may be more later)
@@ -509,7 +516,8 @@ class Generator:
         # Manage wave arounds and pace laps
         done = {
             "wave_arounds": False,
-            "pace_laps": False
+            "pace_laps": False,
+            "delayed_wave_arounds": False
         }
         while not all(done.values()):
             # Get the current lap behind safety car
@@ -518,6 +526,10 @@ class Generator:
             # If wave arounds aren't done, send the wave arounds
             if not done["wave_arounds"]:
                 done["wave_arounds"] = self._send_wave_arounds()
+
+            # If delayed waves aren't done, send the delayed wave arounds
+            if not done["delayed_wave_arounds"]:
+                done["delayed_wave_arounds"] = self._send_delayed_wave_arounds()
 
             # If pace laps aren't done, send the pace laps
             if not done["pace_laps"]:
