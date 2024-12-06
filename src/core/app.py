@@ -589,10 +589,38 @@ class App(tk.Tk):
             self.tooltips_text.get("laps_before_wave_arounds")
         )
 
+        # Create Logging frame
+        logging.debug("Creating Logging frame")
+        self.frm_verbose_logging = ttk.LabelFrame(self, text="Logging")
+        self.frm_verbose_logging.grid(row=1, column=1, sticky="nesw", padx=5, pady=5)
+
+        # Create verbose logging checkbox
+        logging.debug("Creating verbose logging checkbox")
+        self.var_verbose_logging = tk.IntVar()
+        self.var_verbose_logging.set(1)
+        self.chk_verbose_logging = ttk.Checkbutton(
+            self.frm_verbose_logging,
+            text="Enable verbose logging for sim events",
+            variable=self.var_verbose_logging
+        )
+        self.chk_verbose_logging.grid(
+            row=0,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=5,
+            pady=5
+        )
+        tooltip.CreateToolTip(
+            self.chk_verbose_logging,
+            self.tooltips_text.get("verbose_logging")
+        )
+
+
         # Create Controls frame
         logger.debug("Creating Controls frame")
         self.frm_controls = ttk.Frame(self)
-        self.frm_controls.grid(row=1, column=1, sticky="nesw", padx=5, pady=5)
+        self.frm_controls.grid(row=2, column=1, sticky="nesw", padx=5, pady=5)
         self.frm_controls.columnconfigure(0, weight=1)
 
         # Create variable to hold the current row in the frame
@@ -706,6 +734,7 @@ class App(tk.Tk):
             0,
             self.settings["settings"]["laps_before_wave_arounds"]
         )
+        self.var_verbose_logging.set(self.settings["settings"].getboolean("verbose_logging"))
 
     def _save_and_run(self):
         """Save the settings to the config file and run the generator.
@@ -742,6 +771,7 @@ class App(tk.Tk):
         laps_under_sc = self.ent_laps_under_sc.get()
         wave_arounds = self.var_wave_arounds.get()
         laps_before_wave_arounds = self.ent_laps_before_wave_arounds.get()
+        verbose_logging = self.var_verbose_logging.get()
 
         # Save the settings to the config file
         self.settings["settings"]["random"] = str(random)
@@ -763,6 +793,7 @@ class App(tk.Tk):
         self.settings["settings"]["laps_before_wave_arounds"] = str(
             laps_before_wave_arounds
         )
+        self.settings["settings"]["verbose_logging"] = str(verbose_logging)
 
         with open("settings.ini", "w") as configfile:
             self.settings.write(configfile)
