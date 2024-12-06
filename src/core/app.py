@@ -591,19 +591,19 @@ class App(tk.Tk):
 
         # Create Logging frame
         logging.debug("Creating Logging frame")
-        self.frm_verbose_logging = ttk.LabelFrame(self, text="Logging")
-        self.frm_verbose_logging.grid(row=1, column=1, sticky="nesw", padx=5, pady=5)
+        self.frm_telemetry_logging = ttk.LabelFrame(self, text="Telemetry Logging")
+        self.frm_telemetry_logging.grid(row=1, column=1, sticky="nesw", padx=5, pady=5)
 
-        # Create verbose logging checkbox
-        logging.debug("Creating verbose logging checkbox")
-        self.var_verbose_logging = tk.IntVar()
-        self.var_verbose_logging.set(1)
-        self.chk_verbose_logging = ttk.Checkbutton(
-            self.frm_verbose_logging,
-            text="Enable verbose logging for sim events",
-            variable=self.var_verbose_logging
+        # Create Telemetry logging checkbox
+        logging.debug("Creating Telemetry logging checkbox")
+        self.var_telemetry_logging = tk.IntVar()
+        self.var_telemetry_logging.set(1)
+        self.chk_telemetry_logging = ttk.Checkbutton(
+            self.frm_telemetry_logging,
+            text="Enable telemetry logging for sim events",
+            variable=self.var_telemetry_logging
         )
-        self.chk_verbose_logging.grid(
+        self.chk_telemetry_logging.grid(
             row=0,
             column=0,
             columnspan=2,
@@ -612,8 +612,8 @@ class App(tk.Tk):
             pady=5
         )
         tooltip.CreateToolTip(
-            self.chk_verbose_logging,
-            self.tooltips_text.get("verbose_logging")
+            self.chk_telemetry_logging,
+            self.tooltips_text.get("telemetry_logging")
         )
 
 
@@ -734,7 +734,7 @@ class App(tk.Tk):
             0,
             self.settings["settings"]["laps_before_wave_arounds"]
         )
-        self.var_verbose_logging.set(self.settings["settings"].getboolean("verbose_logging"))
+        self.var_telemetry_logging.set(self.settings["settings"].getboolean("telemetry_logging"))
 
     def _save_and_run(self):
         """Save the settings to the config file and run the generator.
@@ -771,7 +771,7 @@ class App(tk.Tk):
         laps_under_sc = self.ent_laps_under_sc.get()
         wave_arounds = self.var_wave_arounds.get()
         laps_before_wave_arounds = self.ent_laps_before_wave_arounds.get()
-        verbose_logging = self.var_verbose_logging.get()
+        telemetry_logging = self.var_telemetry_logging.get()
 
         # Save the settings to the config file
         self.settings["settings"]["random"] = str(random)
@@ -793,7 +793,7 @@ class App(tk.Tk):
         self.settings["settings"]["laps_before_wave_arounds"] = str(
             laps_before_wave_arounds
         )
-        self.settings["settings"]["verbose_logging"] = str(verbose_logging)
+        self.settings["settings"]["telemetry_logging"] = str(telemetry_logging)
 
         with open("settings.ini", "w") as configfile:
             self.settings.write(configfile)

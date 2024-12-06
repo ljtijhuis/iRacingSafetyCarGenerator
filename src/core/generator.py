@@ -8,6 +8,7 @@ import irsdk
 from pywinauto.application import Application
 
 from core import drivers
+from core import telemetry_logger
 
 logger = logging.getLogger(__name__)
 
@@ -181,6 +182,18 @@ class Generator:
         if len(off_track_cars) >= threshold:
             self._start_safety_car(message)
 
+    def _log_telemetry_enabled(self):
+        return self.master.settings["settings"]["telemetry_logging"] == "1"
+    
+    def _log_telemetry_data(self):
+        # If disabled, return
+        if not self._log_telemetry_enabled():
+            return
+        
+        logging.debug("Logging telemetry data")
+        
+        self.telemetry_logger.log()
+        
     def _get_driver_number(self, id):
         """Get the driver number from the iRacing SDK.
 
@@ -235,6 +248,7 @@ class Generator:
         end_minute = float(self.master.settings["settings"]["end_minute"])
         max_events = int(self.master.settings["settings"]["max_safety_cars"])
         min_time = float(self.master.settings["settings"]["min_time_between"])
+        telemetry_logging = bool(self.master.settings["settings"]["telemetry_logging"])
 
         # Adjust start minute if < 3s to avoid triggering on standing start
         if start_minute < 0.05:
@@ -270,6 +284,7 @@ class Generator:
             self._check_random()
             self._check_stopped()
             self._check_off_track()
+            self._log_telemetry_data()
 
             # Break the loop if we are shutting down the thread
             if self._is_shutting_down():
@@ -584,6 +599,10 @@ class Generator:
     
         # Create the Drivers object
         self.drivers = drivers.Drivers(self)
+
+        # and the detailed telemetry logger
+        if self._log_telemetry_enabled():
+            self.telemetry_logger = telemetry_logger.TelemetryLogger(self.drivers)
         
         threading.excepthook = self.generator_thread_excepthook
 
