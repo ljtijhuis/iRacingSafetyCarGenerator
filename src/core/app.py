@@ -1,6 +1,7 @@
 import configparser
 import json
 import logging
+import os
 import tkinter as tk
 from tkinter import ttk
 
@@ -29,7 +30,8 @@ class App(tk.Tk):
         # Load settings from config file
         logger.info("Loading settings from settings.ini")
         self.settings = configparser.ConfigParser()
-        self.settings.read("settings.ini")
+        dir = os.path.dirname(__file__)
+        self.settings.read(os.path.join(dir, "../settings.ini"))
 
         # Set window properties
         self.title("iRacing Safety Car Generator")
@@ -52,7 +54,8 @@ class App(tk.Tk):
     def load_tooltips_text(self):
         logger.info("Loading tooltips text")
         try:
-            with open("tooltips_text.json", "r") as file:
+            dir = os.path.dirname(__file__)
+            with open(os.path.join(dir, "../tooltips_text.json"), "r") as file:
                 self.tooltips_text = json.load(file)
         except Exception as e:
             self.tooltips_text = {}
@@ -625,9 +628,10 @@ class App(tk.Tk):
         # Create run button
         logger.debug("Creating run button")
 
-        play_icon = tk.PhotoImage(file='./assets/play.png')
+        dir = os.path.dirname(__file__)
+        play_icon = tk.PhotoImage(file=os.path.join(dir, '../assets/play.png'))
         play_icon = play_icon.subsample(2)
-        stop_icon = tk.PhotoImage(file='./assets/stop.png')
+        stop_icon = tk.PhotoImage(file=os.path.join(dir, '../assets/stop.png'))
         stop_icon = stop_icon.subsample(2)
 
         self.generator_state_messages = generator_state_messages(play_icon, stop_icon)
@@ -816,7 +820,8 @@ class App(tk.Tk):
             laps_before_wave_arounds
         )
 
-        with open("settings.ini", "w") as configfile:
+        dir = os.path.dirname(__file__)
+        with open(os.path.join(dir, "../settings.ini"), "w") as configfile:
             self.settings.write(configfile)
 
     def set_message(self, message):

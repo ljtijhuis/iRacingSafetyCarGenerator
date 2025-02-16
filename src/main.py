@@ -16,7 +16,9 @@ def setup_logging():
     logger = logging.getLogger(__name__)
 
     # Configure logging
-    with open("logging.json") as logging_conf_file:
+    dir = os.path.dirname(__file__)
+    logging_file = os.path.join(dir, "logging.json")
+    with open(logging_file) as logging_conf_file:
         logging_conf = json.load(logging_conf_file)
 
     # Dynamically set log file name to current time
