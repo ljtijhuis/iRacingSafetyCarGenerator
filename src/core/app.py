@@ -1171,13 +1171,26 @@ class App(tk.Tk):
                 pady=5
             )
 
+            self.btn_split_classes = ttk.Button(
+                self.frm_dev_mode,
+                text="Split classes",
+                command=self._split_classes
+            )
+            self.btn_split_classes.grid(
+                row=3,
+                column=0,
+                sticky="ew",
+                padx=5,
+                pady=5
+            )
+
             self.btn_parse_log_to_csv = ttk.Button(
                 self.frm_dev_mode,
                 text="Parse log to CSV",
                 command=self._parse_log_to_csv
             )
             self.btn_parse_log_to_csv.grid(
-                row=3,
+                row=4,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1190,7 +1203,7 @@ class App(tk.Tk):
                 command=self._dump_sdk
             )
             self.btn_dump_sdk.grid(
-                row=4,
+                row=5,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1204,7 +1217,7 @@ class App(tk.Tk):
                 command=self._toggle_sdk_recording
             )
             self.btn_toggle_recording.grid(
-                row=5,
+                row=6,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1420,11 +1433,19 @@ class App(tk.Tk):
 
     def _copy_sdk_data(self):
         """Copy current SDK data to clipboard
-
+    
         Args:
             None
         """
         copy_sdk_data_to_clipboard()
+
+    def _split_classes(self):
+        """Send EOL commands to split the classes
+
+        Args:
+            None
+        """
+        pass
 
     def _send_test_commands(self):
         """Send test commands to iRacing to understand rate limiting.
@@ -1495,4 +1516,3 @@ class App(tk.Tk):
             self._sdk_recorder = SdkRecorder()
             self._sdk_recorder.start(ir)
             self.btn_toggle_recording.config(text="Stop Recording")
-
