@@ -42,6 +42,7 @@ class App(tk.Tk):
         self.generator = generator.Generator(arguments, self)
         self.shutdown_event = self.generator.shutdown_event
         self.skip_wait_for_green_event = self.generator.skip_wait_for_green_event
+        self.split_classes_event = self.generator.split_classes_event
 
         # Set handler for closing main window event
         self.protocol('WM_DELETE_WINDOW', self.handle_delete_window)
@@ -1445,7 +1446,7 @@ class App(tk.Tk):
         Args:
             None
         """
-        pass
+        self.split_classes_event.set()
 
     def _send_test_commands(self):
         """Send test commands to iRacing to understand rate limiting.
