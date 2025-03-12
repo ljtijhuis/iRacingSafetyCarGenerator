@@ -42,7 +42,6 @@ class App(tk.Tk):
         self.generator = generator.Generator(arguments, self)
         self.shutdown_event = self.generator.shutdown_event
         self.skip_wait_for_green_event = self.generator.skip_wait_for_green_event
-        self.split_classes_event = self.generator.split_classes_event
 
         # Set handler for closing main window event
         self.protocol('WM_DELETE_WINDOW', self.handle_delete_window)
@@ -981,6 +980,30 @@ class App(tk.Tk):
             self.ent_laps_before_wave_arounds,
             self.tooltips_text.get("laps_before_wave_arounds")
         )
+        general_row += 1
+
+        # Create class split checkbox
+        logger.debug("Creating class split checkbox")
+        self.var_class_split = tk.IntVar()
+        self.var_class_split.set(1)
+        self.chk_class_split = ttk.Checkbutton(
+            self.frm_general,
+            text="Split classes",
+            variable=self.var_class_split
+        )
+        self.chk_class_split.grid(
+            row=general_row,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=5,
+            pady=5
+        )
+        tooltip.CreateToolTip(
+            self.chk_class_split,
+            self.tooltips_text.get("class_split")
+        )
+        general_row += 1
 
         logger.debug("Creating wave around rules picker")
         self.cmb_wave_around_rules = ttk.Combobox(
@@ -1172,26 +1195,13 @@ class App(tk.Tk):
                 pady=5
             )
 
-            self.btn_split_classes = ttk.Button(
-                self.frm_dev_mode,
-                text="Split classes",
-                command=self._split_classes
-            )
-            self.btn_split_classes.grid(
-                row=3,
-                column=0,
-                sticky="ew",
-                padx=5,
-                pady=5
-            )
-
             self.btn_parse_log_to_csv = ttk.Button(
                 self.frm_dev_mode,
                 text="Parse log to CSV",
                 command=self._parse_log_to_csv
             )
             self.btn_parse_log_to_csv.grid(
-                row=4,
+                row=3,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1204,7 +1214,7 @@ class App(tk.Tk):
                 command=self._dump_sdk
             )
             self.btn_dump_sdk.grid(
-                row=5,
+                row=4,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1218,7 +1228,7 @@ class App(tk.Tk):
                 command=self._toggle_sdk_recording
             )
             self.btn_toggle_recording.grid(
-                row=6,
+                row=5,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1264,6 +1274,7 @@ class App(tk.Tk):
         self.ent_laps_before_wave_arounds.delete(0, "end")
         self.ent_laps_before_wave_arounds.insert(0, str(self.settings.laps_before_wave_arounds))
         self.cmb_wave_around_rules.current(self.settings.wave_around_rules_index)
+        self.var_class_split.set(self.settings.class_split_enabled)
         self.var_proximity_yellows.set(self.settings.proximity_filter_enabled)
         self.spn_proximity_dist.delete(0, "end")
         self.spn_proximity_dist.insert(0, str(self.settings.proximity_filter_distance_percentage))
@@ -1276,8 +1287,6 @@ class App(tk.Tk):
         self.spn_stopped_weight.insert(0, str(self.settings.stopped_weight))
         self.ent_combined_message.delete(0, "end")
         self.ent_combined_message.insert(0, self.settings.accumulative_message)
-
-        # self.ent_laps_before_wave_arounds.config(state="disabled")
 
     def _save_and_run(self):
         """Save the settings to the config file and run the generator.
@@ -1337,6 +1346,7 @@ class App(tk.Tk):
         wave_arounds = self.var_wave_arounds.get()
         laps_before_wave_arounds = self.ent_laps_before_wave_arounds.get()
         wave_around_rules = self.cmb_wave_around_rules.current()
+        class_split = self.var_class_split.get()
         proximity_yellows = self.var_proximity_yellows.get()
         proximity_yellows_distance = self.spn_proximity_dist.get()
         combined = self.var_combined.get()
@@ -1368,6 +1378,7 @@ class App(tk.Tk):
         self.settings.wave_arounds_enabled = bool(wave_arounds)
         self.settings.laps_before_wave_arounds = int(laps_before_wave_arounds)
         self.settings.wave_around_rules_index = int(wave_around_rules)
+        self.settings.class_split_enabled = bool(class_split)
         self.settings.proximity_filter_enabled = bool(proximity_yellows)
         self.settings.proximity_filter_distance_percentage = float(proximity_yellows_distance)
         self.settings.accumulative_threshold = float(combined_min)
@@ -1439,14 +1450,6 @@ class App(tk.Tk):
             None
         """
         copy_sdk_data_to_clipboard()
-
-    def _split_classes(self):
-        """Send EOL commands to split the classes
-
-        Args:
-            None
-        """
-        self.split_classes_event.set()
 
     def _send_test_commands(self):
         """Send test commands to iRacing to understand rate limiting.

@@ -208,6 +208,16 @@ class Settings:
     def wave_around_rules_index(self, value: int) -> None:
         self._config.set("settings", "wave_around_rules_index", str(value))
 
+    # Class split settings
+    @property
+    def class_split_enabled(self) -> bool:
+        """Enable automatic class splitting via EOL commands."""
+        return self._config["settings"].getboolean("class_split_enabled", fallback=True)
+
+    @class_split_enabled.setter
+    def class_split_enabled(self, value: bool) -> None:
+        self._config.set("settings", "class_split_enabled", str(int(value)))
+
     # Proximity-based yellow flag settings
     @property
     def proximity_filter_enabled(self) -> bool:

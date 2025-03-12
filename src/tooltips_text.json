@@ -23,5 +23,6 @@
     "combined_yellows": "Enables combination/weighted yellows, which count both off-track and stopped cars to determine if a yellow should be thrown. This setting is independent of individual off-track and stopped car yellows.",
     "combined_min": "The threshold at which a yellow will be thrown based on the number of off-track and stopped cars, multiplied by their respective weight values",
     "off_weight": "The value with which the number of off-track cars is multiplied by to determine the off-track weight for combination yellows.",
-    "stopped_weight": "The value with which the number of stopped cars is multiplied by to determine the stopped car weight for combination yellows."
+    "stopped_weight": "The value with which the number of stopped cars is multiplied by to determine the stopped car weight for combination yellows.",
+    "class_split": "Sends EOL commands to sort the grid when classes are mixed up. This happens at the one to green signal."
 }
