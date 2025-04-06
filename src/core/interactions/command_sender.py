@@ -23,7 +23,7 @@ class CommandSender:
         self.iracing_window.connect()
     
 
-    def send_command(self, command, delay = 0.5):
+    def send_command(self, command, delay = 0.0):
         """ Sends the provided command to the iRacing application window.
 
         Args:
@@ -32,13 +32,17 @@ class CommandSender:
         logger.info(f"Sending command: {command}")
 
         self.iracing_window.focus()
+        # Send a quick escape to close a potential chat 
+        self.iracing_window.send_message("{ESC}")
+        # Now open the chat
         self.irsdk.chat_command(1)
+        # And send the command
+        self.iracing_window.send_message(command)
         if delay > 0:
-            logger.debug(f"Adding delay between chat command and send_message of: {delay}")
+            logger.debug(f"Adding delay after send_message of: {delay}")
             time.sleep(delay)
-        self.iracing_window.send_message(f"{command}{{ENTER}}")
 
-    def send_commands(self, commands, delay = 0.5):
+    def send_commands(self, commands, delay = 0.1):
         """ Sends the list of commands in order with the provided delay.
         
         Args:

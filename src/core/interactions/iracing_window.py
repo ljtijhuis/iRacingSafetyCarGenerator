@@ -1,5 +1,6 @@
 import importlib
 import logging
+import pyperclip
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,10 @@ class IRacingWindow():
             message: The message to send.
         """
         logger.debug(f"Sending message to iRacing window: {message}")
-        self.ir_window.type_keys(
-            message,
-            with_spaces=True)
+        # Special case: sending an escape
+        if message == "{ESC}":
+            self.ir_window.type_keys(message)
+        else:
+            # Move the message to the clipboard, paste it and hit enter
+            pyperclip.copy(message)
+            self.ir_window.type_keys("^V{ENTER}") 
