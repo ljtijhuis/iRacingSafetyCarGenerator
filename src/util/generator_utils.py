@@ -47,7 +47,8 @@ def get_split_class_commands(drivers, car_positions, on_pit_road, pace_car_idx):
 
     # Check if we need to split the classes by checking for anyone out of order
     pos_and_idx = zip(pos_from_sc, list(range(len(pos_from_sc))))
-    idx_all_sorted = list(map(lambda tuple: tuple[1], sorted(pos_and_idx, key=lambda item: item[0])))
+    pos_and_idx_filtered = [tuple for tuple in pos_and_idx if tuple[0] != -1]
+    idx_all_sorted = list(map(lambda tuple: tuple[1], sorted(pos_and_idx_filtered, key=lambda item: item[0])))
 
     class_pointer = 0
     pos_pointer = 0
