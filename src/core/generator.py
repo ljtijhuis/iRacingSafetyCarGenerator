@@ -9,7 +9,7 @@ from core.detection.threshold_checker import ThresholdChecker, ThresholdCheckerS
 from core.detection.detector import Detector, DetectorSettings
 from core.interactions.interaction_factories import CommandSenderFactory
 from core.procedures.wave_arounds import wave_around_type_from_selection, wave_arounds_factory
-from util.generator_utils import get_split_class_commands
+from core.procedures.class_split import get_split_class_commands
 
 from codetiming import Timer
 from enum import Enum
