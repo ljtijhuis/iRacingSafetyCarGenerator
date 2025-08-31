@@ -1,7 +1,7 @@
 import logging
 from irsdk import TrkLoc
 from core.detection.detector_common_types import DetectionResult, DetectorEventTypes, DetectorState
-from core.drivers import Drivers
+from core.models.drivers import Drivers
 
 logger = logging.getLogger(__name__)
 

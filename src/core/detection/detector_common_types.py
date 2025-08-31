@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, Protocol
 
-from core.drivers import Driver
+from core.models.drivers import Driver
 
 
 class DetectorEventTypes(Enum):

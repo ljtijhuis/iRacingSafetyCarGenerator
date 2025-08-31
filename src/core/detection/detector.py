@@ -8,7 +8,7 @@ from core.detection.detector_common_types import DetectionResult, DetectorEventT
 from core.detection.off_track_detector import OffTrackDetector
 from core.detection.random_detector import RandomDetector
 from core.detection.stopped_detector import StoppedDetector
-from core.drivers import Drivers
+from core.models.drivers import Drivers
 from typing import Dict
 
 logger = logging.getLogger(__name__)

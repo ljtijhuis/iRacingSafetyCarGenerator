@@ -6,7 +6,8 @@ import time
 
 import irsdk
 
-from core import drivers
+from core.models import drivers
+from core.models.session import Session
 from core.detection.threshold_checker import ThresholdChecker, ThresholdCheckerSettings, DetectorEventTypes
 from core.detection.detector import Detector, DetectorSettings
 from core.interactions.interaction_factories import CommandSenderFactory
@@ -319,7 +320,7 @@ class Generator:
         logger.info(self.drivers.previous_drivers)
 
     def _get_driver_number(self, id):
-        """Get the driver number from the iRacing SDK.
+        """Get the driver number from the Drivers model.
 
         Args:
             id: The iRacing driver ID
@@ -329,13 +330,7 @@ class Generator:
         """
         logger.debug(f"Getting driver number for ID {id}")
 
-        # Get the driver number from the iRacing SDK
-        for driver in self.ir["DriverInfo"]["Drivers"]:
-            if driver["CarIdx"] == id:
-                return driver["CarNumber"]
-                
-        # If the driver number wasn't found, return None
-        return None
+        return self.drivers.get_driver_number(id)
     
     def _get_current_lap_under_sc(self):
         """Get the current lap under safety car for each car on the track.
@@ -345,19 +340,17 @@ class Generator:
         """
         logger.debug("Getting current laps under safety car")
 
-        # Zip the CarIdxLap and CarIdxOnPitRoad arrays together
-        current_lap_numbers = zip(
-            self.ir["CarIdxLap"],
-            self.ir["CarIdxOnPitRoad"]
-        )
-
-        # If pit road value is True, remove it, keeping only laps
-        current_lap_numbers = [
-            car[0] for car in current_lap_numbers if car[1] == False
-        ]
-
-        # Find the highest value in the list
-        self.current_lap_under_sc = max(current_lap_numbers)
+        # Get cars not on pit road and find their highest lap
+        cars_not_on_pit_road = self.drivers.get_cars_not_on_pit_road()
+        
+        if cars_not_on_pit_road:
+            current_lap_numbers = [
+                self.drivers.current_drivers[car_idx]["current_lap"] 
+                for car_idx in cars_not_on_pit_road
+            ]
+            self.current_lap_under_sc = max(current_lap_numbers)
+        else:
+            self.current_lap_under_sc = 0
 
     def _loop(self):
         """Main loop for the safety car generator.
@@ -389,8 +382,9 @@ class Generator:
                 # We do this in a context manager to ensure it is stopped whatever exit point this loop reaches
                 with Timer(name="GeneratorLoopTimer", text="{name}: {:.4f}s", logger=logger.debug):
                     
-                    # Update the drivers object
+                    # Update the model objects
                     self.drivers.update()
+                    self.session.update()
 
                     logger.debug("Checking time")
 
@@ -482,10 +476,7 @@ class Generator:
         # If the max value is 2 laps greater than the lap at yellow
         if self.current_lap_under_sc >= self.lap_at_sc + 2:
             # Get all cars on lead lap at check
-            lead_lap = []
-            for i, lap in enumerate(self.ir["CarIdxLap"]):
-                if lap >= self.current_lap_under_sc:
-                    lead_lap.append(i)
+            lead_lap = self.drivers.get_lead_lap_cars(self.current_lap_under_sc)
 
             # Before next check, wait 1s to make sure leader is across line
             time.sleep(1)
@@ -493,7 +484,7 @@ class Generator:
             # Wait for max value in lap distance of the lead cars to be 50%
             logger.debug("Checking if lead car is halfway around track")
             lead_dist = [
-                self.ir["CarIdxLapDistPct"][car] for car in lead_lap
+                self.drivers.current_drivers[car]["lap_distance"] for car in lead_lap
             ]
 
             # If any lead car is at 50%, send the pacelaps command
@@ -534,24 +525,18 @@ class Generator:
             return False
         
         # Get all class IDs (except safety car)
-        class_ids = []
-        for driver in self.ir["DriverInfo"]["Drivers"]:
-            # Skip the safety car
-            if driver["CarIsPaceCar"] == 1:
-                continue
+        class_ids = self.drivers.get_class_ids()
 
-            # If the class ID isn't already in the list, add it
-            else:
-                if driver["CarClassID"] not in class_ids:
-                    class_ids.append(driver["CarClassID"])
-
-        # Zip together number of laps started, position on track, and class
-        drivers = zip(
-            self.ir["CarIdxLap"],
-            self.ir["CarIdxLapDistPct"],
-            self.ir["CarIdxClass"]
-        )
-        drivers = tuple(drivers)
+        # Get drivers data with lap, distance, and class info
+        driver_data = []
+        for driver in self.drivers.current_drivers:
+            if not driver["is_pace_car"]:
+                driver_data.append((
+                    driver["current_lap"],
+                    driver["lap_distance"], 
+                    driver["car_class_id"]
+                ))
+        drivers = tuple(driver_data)
 
         # Get the highest started lap for each class
         highest_lap = {}
@@ -625,7 +610,7 @@ class Generator:
         self.last_sc_time = time.time()
 
         # Set the lap at yellow flag
-        self.lap_at_sc = max(self.ir["CarIdxLap"])
+        self.lap_at_sc = self.drivers.get_max_lap()
 
         # Manage wave arounds and pace laps
         waves_done = False
@@ -664,35 +649,25 @@ class Generator:
         if require_race_session:
             logger.info("Waiting for race session")
 
-            # Get the list of sessions
-            session_list = self.ir["SessionInfo"]["Sessions"]
-
-            # Create a dict of session names by index
-            sessions = {}
-            for i, session in enumerate(session_list):
-                sessions[i] = session["SessionName"]
-
             # Progress state to waiting for race session
             self.master.generator_state = GeneratorState.WAITING_FOR_RACE_SESSION
 
             # Loop until in a race session
             while True:
-                # Get the current session index
-                current_idx = self.ir["SessionNum"]
+                # Update session data
+                self.session.update()
 
                 # Break the loop if we are shutting down the thread or skipping the wait
                 if self._is_shutting_down() or self._skip_waiting_for_green():
                     logger.debug("Skip waiting for race session because of a threading event")
                     break
 
-                # If the current session is PRACTICE, QUALIFY, or WARMUP
-                if sessions[current_idx] in ["PRACTICE", "QUALIFY", "WARMUP"]:
+                # Check if we're in a race session
+                if self.session.is_race_session():
+                    break
+                else:
                     # Wait 1 second before checking again
                     time.sleep(1)
-                
-                # If the current session is anything else, break the loop
-                else:
-                    break
 
 
         # Progress state to waiting for green
@@ -700,8 +675,11 @@ class Generator:
 
         # Loop until the green flag is displayed
         while True:
+            # Update session data
+            self.session.update()
+            
             # Check if the green flag is displayed
-            if self.ir["SessionFlags"] & irsdk.Flags.green:
+            if self.session.is_green_flag():
                 # Set the start time if it hasn't been set yet
                 if self.start_time is None:
                     self.start_time = time.time()
@@ -753,8 +731,9 @@ class Generator:
                 self.master.generator_state = GeneratorState.ERROR_CONNECTING
                 return False
         
-            # Create the Drivers object
+            # Create the Drivers and Session objects
             self.drivers = drivers.Drivers(self)
+            self.session = Session(self)
 
             # Create the detectors
             detector_settings = DetectorSettings.from_settings(self.master.settings)

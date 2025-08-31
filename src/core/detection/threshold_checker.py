@@ -10,7 +10,7 @@ from enum import Enum
 
 from core.detection.detector import DetectorEventTypes
 from core.detection.detector_common_types import DetectionResult
-from core.drivers import Driver
+from core.models.drivers import Driver
 
 logger = logging.getLogger(__name__)
 @dataclass(frozen=True)
