@@ -58,8 +58,16 @@ class App(tk.Tk):
                 padx=5,
                 pady=5
             )
+            self.btn_skip_wait_for_green.grid(
+                row=self._start_detection_row,
+                column=0,
+                sticky="ew",
+                padx=5,
+                pady=5
+            )
         else:
             self.btn_start_sc.grid_remove()
+            self.btn_skip_wait_for_green.grid_remove()
 
     def load_tooltips_text(self):
         logger.info("Loading tooltips text")
@@ -1095,12 +1103,22 @@ class App(tk.Tk):
         self._throw_yellow_row = controls_row
         controls_row += 1
 
+        self._start_detection_row = controls_row
+        controls_row += 1
+
 
         #Throw Double Yellows
         self.btn_start_sc = ttk.Button(
             self.frm_controls,
             text="Throw Double Yellows",
             command=self._start_safety_car,
+        )
+
+        # Start detection button
+        self.btn_skip_wait_for_green = ttk.Button(
+            self.frm_controls,
+            text="Start detection",
+            command=self._skip_wait_for_green
         )
         
         # Create status label
@@ -1126,19 +1144,6 @@ class App(tk.Tk):
             self.frm_dev_mode.grid(
                 row=controls_row,
                 column=0,
-                sticky="ew", 
-                padx=5,
-                pady=5
-            )
-
-            self.btn_skip_wait_for_green = ttk.Button(
-                self.frm_dev_mode,
-                text="Skip Wait for Green",
-                command=self._skip_wait_for_green
-            )
-            self.btn_skip_wait_for_green.grid(
-                row=0,
-                column=0,
                 sticky="ew",
                 padx=5,
                 pady=5
@@ -1150,7 +1155,7 @@ class App(tk.Tk):
                 command=self._copy_sdk_data
             )
             self.btn_copy_sdk_data.grid(
-                row=1,
+                row=0,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1163,7 +1168,7 @@ class App(tk.Tk):
                 command=self._send_test_commands
             )
             self.btn_send_test_commands.grid(
-                row=2,
+                row=1,
                 column=0,
                 sticky="ew",
                 padx=5,
@@ -1176,7 +1181,7 @@ class App(tk.Tk):
                 command=self._parse_log_to_csv
             )
             self.btn_parse_log_to_csv.grid(
-                row=3,
+                row=2,
                 column=0,
                 sticky="ew",
                 padx=5,
