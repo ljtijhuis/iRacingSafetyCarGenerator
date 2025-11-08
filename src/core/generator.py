@@ -155,11 +155,16 @@ class Generator:
 
             # Loop until the max number of safety car events is reached
             while self.total_sc_events < max_events and not self._is_shutting_down():
-                
+
                 # Start the performance timer
                 # We do this in a context manager to ensure it is stopped whatever exit point this loop reaches
                 with Timer(name="GeneratorLoopTimer", text="{name}: {:.4f}s", logger=logger.debug):
-                    
+
+                    # If skip wait for green event is set while already in monitoring loop, clear it
+                    if self._skip_waiting_for_green():
+                        logger.debug("Skip wait for green event was set while already monitoring, clearing it")
+                        self.skip_wait_for_green_event.clear()
+
                     # Update the drivers object
                     self.drivers.update()
 
@@ -399,6 +404,8 @@ class Generator:
                 # Break the loop if we are shutting down the thread or skipping the wait
                 if self._is_shutting_down() or self._skip_waiting_for_green():
                     logger.debug("Skip waiting for race session because of a threading event")
+                    # Clear the skip event to avoid affecting subsequent cycles
+                    self.skip_wait_for_green_event.clear()
                     break
 
                 # If the current session is PRACTICE, QUALIFY, or WARMUP
@@ -438,7 +445,9 @@ class Generator:
 
                 # Progress to monitoring for SC state
                 self.master.generator_state = GeneratorState.MONITORING_FOR_INCIDENTS
-                
+
+                # Clear the skip event to avoid affecting subsequent cycles
+                self.skip_wait_for_green_event.clear()
                 break
 
             # Wait 1 second before checking again
