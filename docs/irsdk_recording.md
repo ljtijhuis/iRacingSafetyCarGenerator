@@ -24,20 +24,26 @@ The recording system captures full iRSDK data dumps on every driver data refresh
 
 ### What Gets Recorded
 
-Each dump includes:
-- `SessionNum` - Current session number
-- `SessionInfo` - Full session information
-- `SessionFlags` - Current session flags
-- `DriverInfo` - Complete driver information
-- `CarIdxLap` - Current lap for each car
-- `CarIdxLapCompleted` - Completed laps for each car
-- `CarIdxLapDistPct` - Lap distance percentage for each car
-- `CarIdxClass` - Class for each car
-- `CarIdxOnPitRoad` - Pit road status for each car
-- `CarIdxTrackSurface` - Track surface location for each car
-- `total_distance_computed` - Calculated total distance
+Each dump includes **ALL** telemetry data available from iRSDK:
+
+**Metadata:**
 - `dump_number` - Sequential dump number
 - `timestamp` - ISO format timestamp of when the dump was captured
+
+**YAML Data Structures:**
+- `SessionInfo` - Complete session information (track, weather, sessions, etc.)
+- `DriverInfo` - Complete driver information (all drivers, pace car, etc.)
+
+**ALL Telemetry Variables:**
+The recorder iterates through `ir.var_headers` to capture every telemetry variable iRSDK provides, including:
+- Session data: `SessionNum`, `SessionFlags`, `SessionTime`, `SessionTick`, `SessionTimeRemain`, `SessionLapsRemain`, `SessionState`, etc.
+- Car index arrays: `CarIdxLap`, `CarIdxLapCompleted`, `CarIdxLapDistPct`, `CarIdxClass`, `CarIdxOnPitRoad`, `CarIdxTrackSurface`, `CarIdxPosition`, `CarIdxClassPosition`, etc.
+- Timing data: `CarIdxF2Time`, `CarIdxEstTime`, `CarIdxLastLapTime`, `CarIdxBestLapTime`, etc.
+- Car state: `CarIdxGear`, `CarIdxRPM`, `CarIdxSteer`, etc.
+- Player-specific data: `Lap`, `LapDist`, `Speed`, `Throttle`, `Brake`, `Clutch`, `Gear`, `RPM`, etc.
+- And hundreds more telemetry variables...
+
+This ensures you capture everything iRacing provides, not just what the application currently uses.
 
 ### Output Location
 
@@ -200,8 +206,16 @@ def test_full_safety_car_procedure():
 
 - Recordings capture only iRSDK data, not the full simulation state
 - Cannot replay user inputs or command sends (those must be mocked separately)
-- Large recordings (many dumps) consume significant disk space
+- Large recordings (many dumps) consume significant disk space (each dump can be several MB with all telemetry data)
 - Recorded data is specific to the track, cars, and session type
+
+## Data Completeness
+
+The recorder captures **all available telemetry data** from iRSDK by iterating through `var_headers`. This means:
+- You get every variable iRacing exposes, typically 200+ telemetry variables
+- Future-proof: new variables added by iRacing will automatically be captured
+- No need to update the recorder when you need access to new data fields
+- Dump files will be larger (~1-5 MB each depending on grid size) but completely comprehensive
 
 ## Troubleshooting
 

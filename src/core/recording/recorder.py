@@ -87,7 +87,10 @@ class IRSDKRecorder:
 
     def record_dump(self):
         """
-        Record a single dump of iRSDK data.
+        Record a complete dump of ALL iRSDK data.
+
+        This captures every telemetry variable available from iRSDK by iterating
+        through var_headers, plus SessionInfo and DriverInfo.
 
         Returns:
             bool: True if dump was recorded, False if not recording or auto-stopped
@@ -101,26 +104,59 @@ class IRSDKRecorder:
             return False
 
         try:
-            # Capture all relevant iRSDK data
-            lap_list = self.ir["CarIdxLap"]
-            lap_distance_list = self.ir["CarIdxLapDistPct"]
-            total_distance = [t[0] + t[1] for t in zip(lap_list, lap_distance_list)]
-
+            # Initialize data structure with metadata
             data = {
                 "dump_number": self.dump_count,
                 "timestamp": datetime.now().isoformat(),
-                "SessionNum": self.ir["SessionNum"],
-                "SessionInfo": self.ir["SessionInfo"],
-                "SessionFlags": self.ir["SessionFlags"],
-                "DriverInfo": self.ir["DriverInfo"],
-                "CarIdxLap": self.ir["CarIdxLap"],
-                "CarIdxLapCompleted": self.ir["CarIdxLapCompleted"],
-                "CarIdxLapDistPct": self.ir["CarIdxLapDistPct"],
-                "CarIdxClass": self.ir["CarIdxClass"],
-                "CarIdxOnPitRoad": self.ir["CarIdxOnPitRoad"],
-                "CarIdxTrackSurface": self.ir["CarIdxTrackSurface"],
-                "total_distance_computed": total_distance,
             }
+
+            # Capture SessionInfo and DriverInfo (YAML data structures)
+            try:
+                data["SessionInfo"] = self.ir["SessionInfo"]
+            except Exception as e:
+                logger.warning(f"Could not capture SessionInfo: {e}")
+                data["SessionInfo"] = None
+
+            try:
+                data["DriverInfo"] = self.ir["DriverInfo"]
+            except Exception as e:
+                logger.warning(f"Could not capture DriverInfo: {e}")
+                data["DriverInfo"] = None
+
+            # Iterate through ALL telemetry variables using var_headers
+            if hasattr(self.ir, 'var_headers') and self.ir.var_headers:
+                for var_name, var_header in self.ir.var_headers.items():
+                    try:
+                        # Get the value for this variable
+                        value = self.ir[var_name]
+
+                        # Convert any non-serializable types to serializable ones
+                        if isinstance(value, (list, tuple)):
+                            # Convert to list and handle any nested non-serializable types
+                            value = list(value)
+
+                        data[var_name] = value
+                    except Exception as e:
+                        logger.debug(f"Could not capture variable '{var_name}': {e}")
+                        data[var_name] = None
+            else:
+                logger.warning("var_headers not available, falling back to known variables")
+                # Fallback to capturing known important variables
+                known_vars = [
+                    "SessionNum", "SessionFlags", "SessionTime", "SessionTick",
+                    "SessionTimeRemain", "SessionLapsRemain", "SessionState",
+                    "CarIdxLap", "CarIdxLapCompleted", "CarIdxLapDistPct",
+                    "CarIdxClass", "CarIdxOnPitRoad", "CarIdxTrackSurface",
+                    "CarIdxPosition", "CarIdxClassPosition", "CarIdxF2Time",
+                    "CarIdxEstTime", "CarIdxLastLapTime", "CarIdxBestLapTime",
+                    "CarIdxGear", "CarIdxRPM", "CarIdxSteer",
+                ]
+
+                for var_name in known_vars:
+                    try:
+                        data[var_name] = self.ir[var_name]
+                    except Exception as e:
+                        logger.debug(f"Could not capture known variable '{var_name}': {e}")
 
             # Write to numbered file
             dump_file = self.recording_folder / f"{self.dump_count:05d}.json"
@@ -128,9 +164,9 @@ class IRSDKRecorder:
                 json.dump(data, f, indent=2)
 
             self.dump_count += 1
-            logger.debug(f"Recorded dump {self.dump_count} to {dump_file}")
+            logger.debug(f"Recorded dump {self.dump_count} with {len(data)} fields to {dump_file}")
             return True
 
         except Exception as e:
-            logger.error(f"Error recording dump: {e}")
+            logger.error(f"Error recording dump: {e}", exc_info=True)
             return False
