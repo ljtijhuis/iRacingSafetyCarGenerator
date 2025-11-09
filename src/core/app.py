@@ -1,6 +1,7 @@
 import json
 import logging
 import tkinter as tk
+from datetime import datetime
 from tkinter import ttk, filedialog, messagebox
 
 from core import generator
@@ -1183,6 +1184,58 @@ class App(tk.Tk):
                 pady=5
             )
 
+            # iRSDK Recording controls
+            self.lbl_recording_duration = ttk.Label(
+                self.frm_dev_mode,
+                text="Recording duration (s):"
+            )
+            self.lbl_recording_duration.grid(
+                row=4,
+                column=0,
+                sticky="w",
+                padx=5,
+                pady=5
+            )
+
+            self.ent_recording_duration = ttk.Entry(
+                self.frm_dev_mode,
+                width=10
+            )
+            self.ent_recording_duration.insert(0, "30")
+            self.ent_recording_duration.grid(
+                row=5,
+                column=0,
+                sticky="ew",
+                padx=5,
+                pady=5
+            )
+
+            self.btn_start_recording = ttk.Button(
+                self.frm_dev_mode,
+                text="Start Recording iRSDK",
+                command=self._toggle_recording
+            )
+            self.btn_start_recording.grid(
+                row=6,
+                column=0,
+                sticky="ew",
+                padx=5,
+                pady=5
+            )
+
+            self.lbl_recording_status = ttk.Label(
+                self.frm_dev_mode,
+                text="",
+                foreground="green"
+            )
+            self.lbl_recording_status.grid(
+                row=7,
+                column=0,
+                sticky="ew",
+                padx=5,
+                pady=5
+            )
+
         # Fill in the widgets with the settings from the config file
         logger.debug("Filling in widgets with settings from config file")
         self.var_random.set(self.settings.random_detector_enabled)
@@ -1430,4 +1483,61 @@ class App(tk.Tk):
             except Exception as e:
                 logger.error(f"Error parsing log file: {e}")
                 messagebox.showerror("Error", f"Failed to parse log file:\n{str(e)}")
+
+    def _toggle_recording(self):
+        """Toggle iRSDK recording on/off.
+
+        Args:
+            None
+        """
+        recorder = self.generator.recorder
+
+        if recorder.is_recording:
+            # Stop recording
+            recorder.stop_recording()
+            self.btn_start_recording.config(text="Start Recording iRSDK")
+            self.lbl_recording_status.config(text="", foreground="green")
+            logger.info("Recording stopped")
+        else:
+            # Start recording
+            try:
+                duration = int(self.ent_recording_duration.get())
+                if duration <= 0:
+                    messagebox.showerror("Error", "Duration must be greater than 0")
+                    return
+
+                recorder.start_recording(duration)
+                self.btn_start_recording.config(text="Stop Recording")
+                self.lbl_recording_status.config(
+                    text=f"Recording for {duration}s...",
+                    foreground="red"
+                )
+                logger.info(f"Recording started for {duration} seconds")
+            except ValueError:
+                messagebox.showerror("Error", "Please enter a valid number for duration")
+            except Exception as e:
+                logger.error(f"Error starting recording: {e}")
+                messagebox.showerror("Error", f"Failed to start recording:\n{str(e)}")
+
+    def update_recording_status(self):
+        """Update the recording status label.
+
+        Args:
+            None
+        """
+        if hasattr(self, 'lbl_recording_status'):
+            recorder = self.generator.recorder
+            if recorder.is_recording:
+                elapsed = (datetime.now() - recorder.start_time).total_seconds()
+                remaining = max(0, recorder.duration_seconds - elapsed)
+                self.lbl_recording_status.config(
+                    text=f"Recording: {recorder.dump_count} dumps, {remaining:.0f}s left",
+                    foreground="red"
+                )
+            elif recorder.recording_folder and hasattr(recorder, '_last_folder'):
+                # Show completion message briefly
+                self.lbl_recording_status.config(
+                    text=f"Completed: {recorder._last_folder}",
+                    foreground="green"
+                )
 

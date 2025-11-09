@@ -9,6 +9,7 @@ from core.detection.threshold_checker import ThresholdChecker, ThresholdCheckerS
 from core.detection.detector import Detector, DetectorSettings
 from core.interactions.interaction_factories import CommandSenderFactory
 from core.procedures.wave_arounds import wave_around_type_from_selection, wave_arounds_factory
+from core.recording.recorder import IRSDKRecorder
 
 from codetiming import Timer
 from enum import Enum
@@ -43,6 +44,10 @@ class Generator:
         logger.debug("Initializing SDK and CommandSender")
         self.ir = irsdk.IRSDK()
         self.command_sender = CommandSenderFactory(arguments, self.ir)
+
+        # Create the recorder for dev mode
+        logger.debug("Initializing iRSDK recorder")
+        self.recorder = IRSDKRecorder(self.ir)
 
         # The threshold_checker will be configured on start
         self.threshold_checker = None
@@ -159,9 +164,16 @@ class Generator:
                 # Start the performance timer
                 # We do this in a context manager to ensure it is stopped whatever exit point this loop reaches
                 with Timer(name="GeneratorLoopTimer", text="{name}: {:.4f}s", logger=logger.debug):
-                    
+
                     # Update the drivers object
                     self.drivers.update()
+
+                    # Record iRSDK data if recording is active
+                    if self.recorder.is_recording:
+                        self.recorder.record_dump()
+                        # Update UI recording status if in dev mode
+                        if self.master and hasattr(self.master, 'update_recording_status'):
+                            self.master.update_recording_status()
 
                     logger.debug("Checking time")
 
