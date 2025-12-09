@@ -21,6 +21,21 @@ def test_detect_stopped_driver():
     assert result.has_drivers()
     assert result.drivers == [current[0]]
 
+def test_detect_skips_pace_car():
+    current = [
+        make_driver(TrkLoc.on_track, 0, 0, 1, True),
+        make_driver(TrkLoc.on_track, 5, 0.5)
+    ]
+    previous = [
+        make_driver(TrkLoc.on_track, 0, 0, 1, True),
+        make_driver(TrkLoc.on_track, 5, 0.4)
+    ]
+    drivers = MockDrivers(current, previous)
+    detector = StoppedDetector(drivers)
+    result = detector.detect()
+    assert result.has_drivers()
+    assert result.drivers == []
+
 def test_detect_skips_pit_and_not_in_world():
     current = [
         make_driver(TrkLoc.aproaching_pits, 5, 0.0),
