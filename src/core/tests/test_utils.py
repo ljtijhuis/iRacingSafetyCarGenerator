@@ -52,12 +52,13 @@ class MockDrivers:
         self.previous_drivers.append(make_driver(TrkLoc.not_in_world))
 
 
-def make_driver(track_loc, laps_completed = 0, lap_distance = 0.0, driver_idx = 0):
+def make_driver(track_loc, laps_completed = 0, lap_distance = 0.0, driver_idx = 0, is_pace_car = False):
     return {
         "driver_idx": driver_idx,
         "track_loc": track_loc,
         "laps_completed": laps_completed,
-        "lap_distance": lap_distance
+        "lap_distance": lap_distance,
+        "is_pace_car": is_pace_car
     }
 
 

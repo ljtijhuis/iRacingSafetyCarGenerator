@@ -35,6 +35,9 @@ class StoppedDetector:
         total_drivers = len(self.drivers.current_drivers)
         
         for current, previous in zip(self.drivers.current_drivers, self.drivers.previous_drivers):
+            if current["is_pace_car"]:
+                continue
+                
             if current["track_loc"] in [TrkLoc.aproaching_pits, 
                                         TrkLoc.in_pit_stall, 
                                         TrkLoc.not_in_world]:
