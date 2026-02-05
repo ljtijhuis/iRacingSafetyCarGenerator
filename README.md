@@ -5,6 +5,31 @@ This program is designed to trigger safety car events in iRacing with more contr
 
 ![Screenshot of the main window](screenshot.png)
 
+## Documentation
+
+This project includes comprehensive documentation for different audiences:
+
+- **[User Guide](#usage)** - How to use the application (see below)
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture, system design, and workflows for developers
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Guidelines for contributing to the project
+- **[.ai-context.md](.ai-context.md)** - AI coding assistant context (patterns, conventions, gotchas)
+- **[.ai-modules.md](.ai-modules.md)** - Quick module reference for navigation
+- **[docs/RACING_CONCEPTS.md](docs/RACING_CONCEPTS.md)** - Racing terminology and concepts for developers
+
+### For Developers
+
+If you're looking to understand the codebase or contribute:
+- Start with **[ARCHITECTURE.md](ARCHITECTURE.md)** for system design and component interactions
+- Review **[CONTRIBUTING.md](CONTRIBUTING.md)** for development setup and guidelines
+- Check **[.ai-context.md](.ai-context.md)** for critical patterns to follow
+
+### For AI Coding Assistants
+
+This project includes AI-specific documentation files to help coding assistants understand the codebase:
+- **[.ai-context.md](.ai-context.md)** contains critical patterns, conventions, and gotchas
+- **[.ai-modules.md](.ai-modules.md)** provides quick module reference
+- These files work with all AI assistants (Claude Code, GitHub Copilot, Cursor, etc.)
+
 ## Usage
 
 1. Set your settings in the application window, then click the `Save Settings` button. This will write your settings to a file and load them back up next time you launch the app.
