@@ -1,3 +1,4 @@
+import irsdk
 import json
 import logging
 import tkinter as tk
@@ -1183,6 +1184,33 @@ class App(tk.Tk):
                 pady=5
             )
 
+            self.btn_dump_sdk = ttk.Button(
+                self.frm_dev_mode,
+                text="Dump SDK",
+                command=self._dump_sdk
+            )
+            self.btn_dump_sdk.grid(
+                row=4,
+                column=0,
+                sticky="ew",
+                padx=5,
+                pady=5
+            )
+
+            self._sdk_recorder = None
+            self.btn_toggle_recording = ttk.Button(
+                self.frm_dev_mode,
+                text="Start Recording",
+                command=self._toggle_sdk_recording
+            )
+            self.btn_toggle_recording.grid(
+                row=5,
+                column=0,
+                sticky="ew",
+                padx=5,
+                pady=5
+            )
+
         # Fill in the widgets with the settings from the config file
         logger.debug("Filling in widgets with settings from config file")
         self.var_random.set(self.settings.random_detector_enabled)
@@ -1430,4 +1458,41 @@ class App(tk.Tk):
             except Exception as e:
                 logger.error(f"Error parsing log file: {e}")
                 messagebox.showerror("Error", f"Failed to parse log file:\n{str(e)}")
+
+    def _dump_sdk(self):
+        """Capture and save a full SDK snapshot to a JSON file."""
+        ir = irsdk.IRSDK()
+        connected = False
+        try:
+            if not ir.startup():
+                messagebox.showerror("Error", "Could not connect to iRacing SDK")
+                return
+            connected = True
+            from util.sdk_dump import save_snapshot
+            file_path = save_snapshot(ir)
+            messagebox.showinfo("Success", f"SDK snapshot saved to:\n{file_path}")
+        except Exception as e:
+            logger.error(f"Error dumping SDK: {e}")
+            messagebox.showerror("Error", f"Failed to dump SDK:\n{str(e)}")
+        finally:
+            if connected:
+                ir.shutdown()
+
+    def _toggle_sdk_recording(self):
+        """Start or stop continuous SDK recording."""
+        from util.sdk_dump import SdkRecorder
+
+        if self._sdk_recorder is not None and self._sdk_recorder.is_recording:
+            output_file = self._sdk_recorder.stop()
+            self._sdk_recorder = None
+            self.btn_toggle_recording.config(text="Start Recording")
+            messagebox.showinfo("Recording Stopped", f"Recording saved to:\n{output_file}")
+        else:
+            ir = irsdk.IRSDK()
+            if not ir.startup():
+                messagebox.showerror("Error", "Could not connect to iRacing SDK")
+                return
+            self._sdk_recorder = SdkRecorder()
+            self._sdk_recorder.start(ir)
+            self.btn_toggle_recording.config(text="Stop Recording")
 
