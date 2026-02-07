@@ -1200,7 +1200,7 @@ class App(tk.Tk):
             self._sdk_recorder = None
             self.btn_toggle_recording = ttk.Button(
                 self.frm_dev_mode,
-                text="Start Recording",
+                text="Start Recording SDK data",
                 command=self._toggle_sdk_recording
             )
             self.btn_toggle_recording.grid(

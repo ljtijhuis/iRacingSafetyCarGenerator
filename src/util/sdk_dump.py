@@ -21,7 +21,7 @@ SESSION_INFO_KEYS = [
 ]
 
 
-def _make_serializable(value):
+def _make_serializable(value: object) -> object:
     """Convert non-serializable SDK values to JSON-compatible types."""
     if isinstance(value, (int, float, str, bool, type(None))):
         return value
@@ -36,7 +36,7 @@ def _make_serializable(value):
         return str(value)
 
 
-def dump_sdk_snapshot(ir):
+def dump_sdk_snapshot(ir: irsdk.IRSDK) -> dict:
     """Capture a snapshot of all available SDK telemetry and session data.
 
     Args:
@@ -75,7 +75,7 @@ def dump_sdk_snapshot(ir):
     return snapshot
 
 
-def save_snapshot(ir, output_dir=DUMPS_DIR):
+def save_snapshot(ir: irsdk.IRSDK, output_dir: str = DUMPS_DIR) -> str:
     """Capture and save an SDK snapshot to a JSON file.
 
     Args:
@@ -98,12 +98,13 @@ def save_snapshot(ir, output_dir=DUMPS_DIR):
 class SdkRecorder:
     """Records SDK snapshots continuously to an NDJSON file."""
 
-    def __init__(self):
-        self._shutdown_event = threading.Event()
-        self._thread = None
-        self._output_file = None
+    def __init__(self) -> None:
+        self._shutdown_event: threading.Event = threading.Event()
+        self._thread: threading.Thread | None = None
+        self._output_file: str | None = None
+        self._ir: irsdk.IRSDK | None = None
 
-    def start(self, ir, output_dir=DUMPS_DIR):
+    def start(self, ir: irsdk.IRSDK, output_dir: str = DUMPS_DIR) -> None:
         """Start recording SDK snapshots every second.
 
         Args:
@@ -119,7 +120,7 @@ class SdkRecorder:
         self._thread.start()
         logger.info("SDK recording started: %s", self._output_file)
 
-    def _record_loop(self):
+    def _record_loop(self) -> None:
         with open(self._output_file, "a", encoding="utf-8") as f:
             while not self._shutdown_event.is_set():
                 try:
@@ -130,7 +131,7 @@ class SdkRecorder:
                     logger.exception("Error capturing SDK snapshot during recording")
                 self._shutdown_event.wait(timeout=1.0)
 
-    def stop(self):
+    def stop(self) -> str | None:
         """Stop the recording and return the output file path.
 
         Returns:
@@ -140,9 +141,12 @@ class SdkRecorder:
         if self._thread is not None:
             self._thread.join(timeout=5.0)
             self._thread = None
+        if self._ir is not None:
+            self._ir.shutdown()
+            self._ir = None
         logger.info("SDK recording stopped: %s", self._output_file)
         return self._output_file
 
     @property
-    def is_recording(self):
+    def is_recording(self) -> bool:
         return self._thread is not None and self._thread.is_alive()
