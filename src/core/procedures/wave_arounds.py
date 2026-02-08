@@ -2,6 +2,8 @@ import logging
 from enum import Enum
 from typing import List
 
+from irsdk import TrkLoc
+
 from core.drivers import Driver
 from util.generator_utils import positions_from_safety_car
 
@@ -120,7 +122,7 @@ def _get_lapped_car_indices(drivers: List[Driver], pace_car_idx: int) -> List[in
     # For each driver, check if they're eligible for a wave around
     for driver in drivers:
         # Skip pace car
-        if driver["driver_idx"] == pace_car_idx or driver["on_pit_road"]:
+        if driver["driver_idx"] == pace_car_idx or driver["on_pit_road"] or driver["track_loc"] in [TrkLoc.not_in_world, TrkLoc.in_pit_stall, TrkLoc.aproaching_pits]:
             continue
 
         # Get the class ID for the current driver
@@ -214,8 +216,8 @@ def _get_ahead_of_class_lead_indices(drivers: List[Driver], pace_car_idx: int) -
     # Identify cars ahead of their class leader and behind the overall lead
     for driver in drivers:
         idx = driver["driver_idx"]
-        if idx == pace_car_idx or driver["on_pit_road"]:
-            logger.debug(f"Skipping driver idx {idx} (pace car or on pit road)")
+        if idx == pace_car_idx or driver["on_pit_road"] or driver["track_loc"] in [TrkLoc.not_in_world, TrkLoc.in_pit_stall, TrkLoc.aproaching_pits]:
+            logger.debug(f"Skipping driver idx {idx} (pace car, on pit road, or ineligible track location)")
             continue
 
         car_class = driver["car_class_id"]
