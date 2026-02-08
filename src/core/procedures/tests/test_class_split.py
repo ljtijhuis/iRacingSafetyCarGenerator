@@ -1,7 +1,12 @@
+from pathlib import Path
+
 import pytest
 
 from core.procedures.class_split import get_split_class_commands
-from core.tests.test_utils import make_driver
+from core.tests.test_utils import make_driver, drivers_from_dump_frame
+
+# Navigate from this file to repo root: tests -> procedures -> core -> src -> repo_root
+DUMPS_DIR = Path(__file__).resolve().parents[4] / "docs" / "dumps"
 
 drivers = [
     make_driver(driver_idx=0, car_number="1", car_class_id=4016, car_class_est_lap_time=40.9251),
@@ -130,3 +135,32 @@ def test_three_classes_out_of_order():
     # Fast class should NOT get EOL
     assert "!eol 10 Splitting classes" not in commands
     assert "!eol 11 Splitting classes" not in commands
+
+
+# Real-world tests from SDK dump files
+class TestClassSplitFromDumps:
+    """Tests using real SDK dump data from simulator testing sessions."""
+
+    def test_fast_car_behind_slow_class_needs_split(self):
+        """Real-world: Fast class car #15 stuck behind slow class cars needs EOL commands."""
+        dump_path = DUMPS_DIR / "local_session_safety_car_fast_car_behind_slower_class_split_classes.ndjson"
+        drivers, pace_car_idx = drivers_from_dump_frame(dump_path, frame_index=100)
+
+        commands = get_split_class_commands(drivers, pace_car_idx)
+
+        # All 7 slow class cars should get EOL (including those in pits)
+        assert len(commands) == 7
+        # Verify all slow class cars are included
+        slow_class_car_numbers = {"11", "9", "4", "00", "10", "12", "08"}
+        for car_num in slow_class_car_numbers:
+            assert f"!eol {car_num} Splitting classes" in commands
+
+    def test_classes_already_sorted_no_commands(self):
+        """After EOL commands executed, classes are sorted - no further commands needed."""
+        dump_path = DUMPS_DIR / "local_session_safety_car_fast_car_behind_slower_class_split_classes.ndjson"
+        drivers, pace_car_idx = drivers_from_dump_frame(dump_path, frame_index=200)
+
+        commands = get_split_class_commands(drivers, pace_car_idx)
+
+        # Classes already in order - no commands needed
+        assert commands == []

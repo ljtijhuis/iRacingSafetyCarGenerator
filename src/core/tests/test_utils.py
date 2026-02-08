@@ -1,8 +1,55 @@
 """Test utilities for mocking common objects across test files."""
 
+import json
+from pathlib import Path
 from unittest.mock import Mock
 from irsdk import TrkLoc
 from configparser import ConfigParser
+
+
+def drivers_from_dump_frame(dump_path: Path, frame_index: int) -> tuple[list[dict], int]:
+    """Load driver data from a specific frame of an NDJSON dump file.
+
+    Args:
+        dump_path: Path to the NDJSON dump file.
+        frame_index: The 0-based line/frame index to read.
+
+    Returns:
+        A tuple of (drivers_list, pace_car_idx) where:
+        - drivers_list is a list of driver dicts with keys matching the format
+          expected by get_split_class_commands
+        - pace_car_idx is the index of the pace car in drivers_list
+    """
+    with open(dump_path, "r") as f:
+        for i, line in enumerate(f):
+            if i == frame_index:
+                data = json.loads(line)
+                break
+        else:
+            raise IndexError(f"Frame {frame_index} not found in {dump_path}")
+
+    drivers_info = data["session_info"]["DriverInfo"]["Drivers"]
+    telemetry = data["telemetry"]
+
+    drivers = []
+    pace_car_idx = None
+
+    for d in drivers_info:
+        idx = d["CarIdx"]
+        driver = {
+            "driver_idx": idx,
+            "car_number": d["CarNumber"],
+            "car_class_id": d["CarClassID"],
+            "car_class_est_lap_time": d["CarClassEstLapTime"],
+            "is_pace_car": d["CarIsPaceCar"] == 1,
+            "lap_distance": telemetry["CarIdxLapDistPct"][idx],
+            "on_pit_road": telemetry["CarIdxOnPitRoad"][idx],
+        }
+        drivers.append(driver)
+        if driver["is_pace_car"]:
+            pace_car_idx = len(drivers) - 1
+
+    return drivers, pace_car_idx
 
 
 def create_mock_drivers(num_drivers=60, include_previous=True):
