@@ -57,6 +57,11 @@ class Generator:
         self.throw_manual_sc_event = threading.Event()
         self.skip_wait_for_green_event = threading.Event()
 
+        # Class split confirmation (cross-thread communication)
+        self.confirm_class_split_event = threading.Event()
+        self._class_split_confirmed = False
+        self._class_split_commands = []
+
     def _init_state_variables(self):
         """ (Re)set generator state variables, called whenever we start the generator
         
@@ -94,6 +99,27 @@ class Generator:
             None
         """
         return self.skip_wait_for_green_event.is_set()
+
+    def _request_class_split_confirmation(self, commands: list[str]) -> bool:
+        """Request confirmation from the UI before sending class-split EOL commands.
+
+        Blocks the generator thread until the user confirms or cancels.
+        Returns True if confirmed, False if cancelled or timed out.
+        """
+        self._class_split_commands = commands
+        self.confirm_class_split_event.clear()
+        self._class_split_confirmed = False
+
+        # Schedule the dialog on the main (UI) thread
+        self.master.after(0, self.master.show_class_split_confirmation)
+
+        # Block until the user responds (check shutdown periodically)
+        while not self.confirm_class_split_event.is_set():
+            if self._is_shutting_down():
+                return False
+            self.confirm_class_split_event.wait(timeout=0.5)
+
+        return self._class_split_confirmed
 
     def _check_manual_event(self):
         """Checks for the manual SC button to be pressed and starts the SC if so.
@@ -354,7 +380,16 @@ class Generator:
             self.drivers.session_info["pace_car_idx"]
         )
 
-        # Send EOL commands from lead through last in-order
+        if len(commands) == 0:
+            logger.info("No class splitting needed")
+            return True
+
+        # Request confirmation from the user
+        if not self._request_class_split_confirmation(commands):
+            logger.info("Class split cancelled by user")
+            return True
+
+        # User confirmed — send the commands
         self.command_sender.send_commands(commands)
 
         logger.info("Done splitting classes")

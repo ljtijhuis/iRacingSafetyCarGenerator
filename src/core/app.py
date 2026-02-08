@@ -1435,6 +1435,22 @@ class App(tk.Tk):
             self.ent_laps_before_wave_arounds.config(state="disabled")
             self.cmb_wave_around_rules.config(state="disabled")
 
+    def show_class_split_confirmation(self):
+        """Show a confirmation dialog for class-split EOL commands.
+
+        Called via after() from the generator thread. Runs on the main thread.
+        """
+        commands = self.generator._class_split_commands
+
+        # Build a readable message listing the EOL commands
+        command_list = "\n".join(f"  {i+1}. {cmd}" for i, cmd in enumerate(commands))
+        message = f"The following EOL commands will be sent:\n\n{command_list}\n\nProceed?"
+
+        result = messagebox.askokcancel("Confirm Class Split", message)
+
+        self.generator._class_split_confirmed = result
+        self.generator.confirm_class_split_event.set()
+
     def _skip_wait_for_green(self):
         """Move from waiting for green to monitoring session state.
 

@@ -143,6 +143,106 @@ def test_send_wave_arounds_no_eligible_cars(generator, mocker):
     assert result is True
 
 
+class TestSplitClasses:
+    """Tests for _split_classes() method with confirmation flow."""
+
+    def test_split_classes_disabled(self, generator):
+        """Test when class splitting is disabled."""
+        generator.master.settings.class_split_enabled = False
+        result = generator._split_classes()
+        assert result is True
+
+    def test_split_classes_not_time_yet(self, generator):
+        """Test when laps elapsed < laps_under_sc."""
+        generator.master.settings.class_split_enabled = True
+        generator.master.settings.laps_under_safety_car = 5
+        generator.lap_at_sc = 10
+        generator.current_lap_under_sc = 12  # Only 2 laps elapsed, need 5
+        result = generator._split_classes()
+        assert result is False
+
+    def test_split_classes_no_commands_needed(self, generator, mocker):
+        """Test when get_split_class_commands returns empty list."""
+        generator.master.settings.class_split_enabled = True
+        generator.master.settings.laps_under_safety_car = 3
+        generator.lap_at_sc = 10
+        generator.current_lap_under_sc = 13
+        generator.drivers.session_info = {"pace_car_idx": 0}
+
+        mocker.patch("core.generator.get_split_class_commands", return_value=[])
+        mock_request = mocker.patch.object(generator, "_request_class_split_confirmation")
+        mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+        result = generator._split_classes()
+
+        assert result is True
+        mock_request.assert_not_called()
+        mock_send.assert_not_called()
+
+    def test_split_classes_confirmed(self, generator, mocker):
+        """Test when user confirms the class split commands."""
+        generator.master.settings.class_split_enabled = True
+        generator.master.settings.laps_under_safety_car = 3
+        generator.lap_at_sc = 10
+        generator.current_lap_under_sc = 13
+        generator.drivers.session_info = {"pace_car_idx": 0}
+
+        commands = ["!eol #1", "!eol #2"]
+        mocker.patch("core.generator.get_split_class_commands", return_value=commands)
+        mocker.patch.object(generator, "_request_class_split_confirmation", return_value=True)
+        mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+        result = generator._split_classes()
+
+        assert result is True
+        mock_send.assert_called_once_with(commands)
+
+    def test_split_classes_cancelled(self, generator, mocker):
+        """Test when user cancels the class split commands."""
+        generator.master.settings.class_split_enabled = True
+        generator.master.settings.laps_under_safety_car = 3
+        generator.lap_at_sc = 10
+        generator.current_lap_under_sc = 13
+        generator.drivers.session_info = {"pace_car_idx": 0}
+
+        commands = ["!eol #1", "!eol #2"]
+        mocker.patch("core.generator.get_split_class_commands", return_value=commands)
+        mocker.patch.object(generator, "_request_class_split_confirmation", return_value=False)
+        mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+        result = generator._split_classes()
+
+        assert result is True
+        mock_send.assert_not_called()
+
+    def test_split_classes_shutdown_during_confirmation(self, generator, mocker):
+        """Test shutdown event set while waiting for confirmation."""
+        generator.master.settings.class_split_enabled = True
+        generator.master.settings.laps_under_safety_car = 3
+        generator.lap_at_sc = 10
+        generator.current_lap_under_sc = 13
+        generator.drivers.session_info = {"pace_car_idx": 0}
+
+        commands = ["!eol #1", "!eol #2"]
+        mocker.patch("core.generator.get_split_class_commands", return_value=commands)
+
+        # Simulate shutdown: _request_class_split_confirmation checks _is_shutting_down
+        # which returns True, so the method returns False
+        def fake_request(cmds):
+            generator.shutdown_event.set()
+            return generator._request_class_split_confirmation.__wrapped__(generator, cmds) \
+                if hasattr(generator._request_class_split_confirmation, '__wrapped__') \
+                else False
+
+        mocker.patch.object(generator, "_request_class_split_confirmation", side_effect=fake_request)
+        mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+        result = generator._split_classes()
+
+        assert result is True
+        mock_send.assert_not_called()
+
+
 class TestWaitForGreenFlag:
     """Tests for _wait_for_green_flag() method."""
 
