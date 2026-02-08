@@ -233,6 +233,30 @@ class_2_drivers = [d for d in drivers if d["car_class_id"] == 2]
 class_leader = max(class_2_drivers, key=lambda d: d["total_distance"])
 ```
 
+### Class Splitting
+
+**What is Class Splitting?**
+
+During a safety car period in multi-class racing, cars from different classes may be interleaved behind the pace car. **Class splitting** reorders the field so that all cars of the fastest class are at the front, followed by the next-fastest class, and so on.
+
+**Why it matters:**
+- Ensures clean restarts where classes don't interfere with each other
+- Faster classes aren't stuck behind slower cars at the green flag
+- Mirrors real-world race control procedures in series like IMSA and WEC
+
+**How it works in the application:**
+1. During a safety car period, the system checks if classes are out of order behind the pace car
+2. Classes are sorted by `CarClassEstLapTime` (fastest first)
+3. If any slower class car is found ahead of where it should be, `!eol` commands are sent for all drivers in that class and any slower classes
+4. Commands are sent in position order within each class (closest to pace car first)
+
+**Example:**
+```
+Before: SC → GT3(#1) → LMP2(#5) → GT3(#2) → LMP2(#6)
+                        ↑ out of order!
+After:  SC → LMP2(#5) → LMP2(#6) → GT3(#1) → GT3(#2)
+```
+
 ### Why Multi-Class Matters for Wave Arounds
 
 **Problem:** A fast class (e.g., LMP2) may lap a slower class (e.g., GT4) multiple times.
@@ -343,6 +367,15 @@ iRacing accepts race control commands via the chat interface:
 ```
 - Allows specified car to pass pace car
 - Car regains one lap
+
+#### `!eol <car_number>` - End of Longest Line
+```
+!eol 42 Splitting classes   # Send car #42 to end of line
+!eol 7 Splitting classes    # Send car #7 to end of line
+```
+- Sends specified car to the back of the field
+- Used during class splitting to sort mixed-class grids by class speed
+- Message after car number is displayed to all drivers
 
 #### Command Timing
 - **0.1s delay** after opening chat (UI update time)

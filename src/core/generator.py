@@ -328,19 +328,19 @@ class Generator:
         """
 
         # Check if class splitting is enabled
-        class_split_setting = self.master.settings["settings"]["class_split"]
-        
-        if class_split_setting == "0":
+        if not self.master.settings.class_split_enabled:
             logger.info("Class splits disabled, skipping")
             return True
-        
-        # Check if we are one to green
-        laps_under_sc = int(
-            self.master.settings["settings"]["laps_under_sc"]
-        )
-        laps_under_sc = max(laps_under_sc, 3)
 
-        logger.debug(f"Checking if we need to split classes: current_lap_under_sc={self.current_lap_under_sc}, lap_at_sc={self.lap_at_sc}, laps_under_sc={laps_under_sc}, self.current_lap_under_sc - self.lap_at_sc < laps_under_sc={self.current_lap_under_sc - self.lap_at_sc < laps_under_sc}")
+        # Check if we are one to green
+        laps_under_sc = max(self.master.settings.laps_under_safety_car, 3)
+
+        logger.debug(
+            f"Checking if we need to split classes: "
+            f"current_lap_under_sc={self.current_lap_under_sc}, "
+            f"lap_at_sc={self.lap_at_sc}, laps_under_sc={laps_under_sc}, "
+            f"laps_elapsed_check={self.current_lap_under_sc - self.lap_at_sc < laps_under_sc}"
+        )
         if self.current_lap_under_sc - self.lap_at_sc < laps_under_sc:
             # Wait longer 
             return False

@@ -212,7 +212,7 @@ class Settings:
     @property
     def class_split_enabled(self) -> bool:
         """Enable automatic class splitting via EOL commands."""
-        return self._config["settings"].getboolean("class_split_enabled", fallback=True)
+        return self._config["settings"].getboolean("class_split_enabled", fallback=False)
 
     @class_split_enabled.setter
     def class_split_enabled(self, value: bool) -> None:
