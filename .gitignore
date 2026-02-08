@@ -1,5 +1,9 @@
+# AI agents
+.claude
+
 # SDK dumps
-dumps/
+/src/dumps/
+/dumps/
 
 # VSCode
 .vscode/

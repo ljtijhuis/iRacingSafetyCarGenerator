@@ -417,7 +417,20 @@ class Generator:
         # Loop until the green flag is displayed
         while True:
             # Check if the green flag is displayed
-            if self.ir["SessionFlags"] & irsdk.Flags.green:
+            green_flag = self.ir["SessionFlags"] & irsdk.Flags.green
+
+            # Check if race is already in progress (only for initial race start, not SC restart)
+            # SessionState stays 'racing' during SC periods, so we only check this when
+            # require_race_session=True to avoid false triggers during SC restart waits
+            race_already_in_progress = require_race_session and \
+                                       self.ir["SessionState"] == irsdk.SessionState.racing
+
+            if green_flag or race_already_in_progress:
+                if green_flag:
+                    logger.info("Green flag detected")
+                elif race_already_in_progress:
+                    logger.info("Race already in progress - skipping green flag wait")
+
                 # Set the start time if it hasn't been set yet
                 if self.start_time is None:
                     self.start_time = time.time()
@@ -425,7 +438,7 @@ class Generator:
 
                 # Progress to monitoring for SC state
                 self.master.generator_state = GeneratorState.MONITORING_FOR_INCIDENTS
-                
+
                 # Break the loop
                 break
 
