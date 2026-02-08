@@ -980,6 +980,7 @@ class App(tk.Tk):
             self.ent_laps_before_wave_arounds,
             self.tooltips_text.get("laps_before_wave_arounds")
         )
+        general_row += 1
 
         logger.debug("Creating wave around rules picker")
         self.cmb_wave_around_rules = ttk.Combobox(
@@ -1003,6 +1004,28 @@ class App(tk.Tk):
         tooltip.CreateToolTip(
             self.cmb_wave_around_rules,
             self.tooltips_text.get("wave_around_rules")
+        )
+
+        # Create class split checkbox
+        logger.debug("Creating class split checkbox")
+        self.var_class_split = tk.IntVar()
+        self.var_class_split.set(1)
+        self.chk_class_split = ttk.Checkbutton(
+            self.frm_procedures,
+            text="Split classes (Experimental)",
+            variable=self.var_class_split
+        )
+        self.chk_class_split.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=5,
+            pady=5
+        )
+        tooltip.CreateToolTip(
+            self.chk_class_split,
+            self.tooltips_text.get("class_split")
         )
 
         # Create Controls frame
@@ -1250,6 +1273,7 @@ class App(tk.Tk):
         self.ent_laps_before_wave_arounds.delete(0, "end")
         self.ent_laps_before_wave_arounds.insert(0, str(self.settings.laps_before_wave_arounds))
         self.cmb_wave_around_rules.current(self.settings.wave_around_rules_index)
+        self.var_class_split.set(self.settings.class_split_enabled)
         self.var_proximity_yellows.set(self.settings.proximity_filter_enabled)
         self.spn_proximity_dist.delete(0, "end")
         self.spn_proximity_dist.insert(0, str(self.settings.proximity_filter_distance_percentage))
@@ -1262,8 +1286,6 @@ class App(tk.Tk):
         self.spn_stopped_weight.insert(0, str(self.settings.stopped_weight))
         self.ent_combined_message.delete(0, "end")
         self.ent_combined_message.insert(0, self.settings.accumulative_message)
-
-        # self.ent_laps_before_wave_arounds.config(state="disabled")
 
     def _save_and_run(self):
         """Save the settings to the config file and run the generator.
@@ -1323,6 +1345,7 @@ class App(tk.Tk):
         wave_arounds = self.var_wave_arounds.get()
         laps_before_wave_arounds = self.ent_laps_before_wave_arounds.get()
         wave_around_rules = self.cmb_wave_around_rules.current()
+        class_split = self.var_class_split.get()
         proximity_yellows = self.var_proximity_yellows.get()
         proximity_yellows_distance = self.spn_proximity_dist.get()
         combined = self.var_combined.get()
@@ -1354,6 +1377,7 @@ class App(tk.Tk):
         self.settings.wave_arounds_enabled = bool(wave_arounds)
         self.settings.laps_before_wave_arounds = int(laps_before_wave_arounds)
         self.settings.wave_around_rules_index = int(wave_around_rules)
+        self.settings.class_split_enabled = bool(class_split)
         self.settings.proximity_filter_enabled = bool(proximity_yellows)
         self.settings.proximity_filter_distance_percentage = float(proximity_yellows_distance)
         self.settings.accumulative_threshold = float(combined_min)
@@ -1410,6 +1434,22 @@ class App(tk.Tk):
             self.ent_laps_before_wave_arounds.config(state="disabled")
             self.cmb_wave_around_rules.config(state="disabled")
 
+    def show_class_split_confirmation(self):
+        """Show a confirmation dialog for class-split EOL commands.
+
+        Called via after() from the generator thread. Runs on the main thread.
+        """
+        commands = self.generator._class_split_commands
+
+        # Build a readable message listing the EOL commands
+        command_list = "\n".join(f"  {i+1}. {cmd}" for i, cmd in enumerate(commands))
+        message = f"The following EOL commands will be sent:\n\n{command_list}\n\nProceed?"
+
+        result = messagebox.askokcancel("Confirm Class Split", message)
+
+        self.generator._class_split_confirmed = result
+        self.generator.confirm_class_split_event.set()
+
     def _skip_wait_for_green(self):
         """Move from waiting for green to monitoring session state.
 
@@ -1420,7 +1460,7 @@ class App(tk.Tk):
 
     def _copy_sdk_data(self):
         """Copy current SDK data to clipboard
-
+    
         Args:
             None
         """
@@ -1495,4 +1535,3 @@ class App(tk.Tk):
             self._sdk_recorder = SdkRecorder()
             self._sdk_recorder.start(ir)
             self.btn_toggle_recording.config(text="Stop Recording")
-

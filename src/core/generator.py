@@ -9,6 +9,7 @@ from core.detection.threshold_checker import ThresholdChecker, ThresholdCheckerS
 from core.detection.detector import Detector, DetectorSettings
 from core.interactions.interaction_factories import CommandSenderFactory
 from core.procedures.wave_arounds import wave_around_type_from_selection, wave_arounds_factory
+from core.procedures.class_split import get_split_class_commands
 
 from codetiming import Timer
 from enum import Enum
@@ -56,6 +57,11 @@ class Generator:
         self.throw_manual_sc_event = threading.Event()
         self.skip_wait_for_green_event = threading.Event()
 
+        # Class split confirmation (cross-thread communication)
+        self.confirm_class_split_event = threading.Event()
+        self._class_split_confirmed = False
+        self._class_split_commands = []
+
     def _init_state_variables(self):
         """ (Re)set generator state variables, called whenever we start the generator
         
@@ -93,6 +99,27 @@ class Generator:
             None
         """
         return self.skip_wait_for_green_event.is_set()
+
+    def _request_class_split_confirmation(self, commands: list[str]) -> bool:
+        """Request confirmation from the UI before sending class-split EOL commands.
+
+        Blocks the generator thread until the user confirms or cancels.
+        Returns True if confirmed, False if cancelled or timed out.
+        """
+        self._class_split_commands = commands
+        self.confirm_class_split_event.clear()
+        self._class_split_confirmed = False
+
+        # Schedule the dialog on the main (UI) thread
+        self.master.after(0, self.master.show_class_split_confirmation)
+
+        # Block until the user responds (check shutdown periodically)
+        while not self.confirm_class_split_event.is_set():
+            if self._is_shutting_down():
+                return False
+            self.confirm_class_split_event.wait(timeout=0.5)
+
+        return self._class_split_confirmed
 
     def _check_manual_event(self):
         """Checks for the manual SC button to be pressed and starts the SC if so.
@@ -316,6 +343,57 @@ class Generator:
 
         # Return True when wave arounds are done
         return True
+    
+    def _split_classes(self):
+        """Split the classes by sending EOL chat commands for the slower class. 
+            This functionality is experimental, manually triggered and limited to 
+            races with only two classes.
+
+        Args:
+            None
+        """
+
+        # Check if class splitting is enabled
+        if not self.master.settings.class_split_enabled:
+            logger.info("Class splits disabled, skipping")
+            return True
+
+        # Check if we are one to green
+        laps_under_sc = max(self.master.settings.laps_under_safety_car, 3)
+
+        logger.debug(
+            f"Checking if we need to split classes: "
+            f"current_lap_under_sc={self.current_lap_under_sc}, "
+            f"lap_at_sc={self.lap_at_sc}, laps_under_sc={laps_under_sc}, "
+            f"laps_elapsed_check={self.current_lap_under_sc - self.lap_at_sc < laps_under_sc}"
+        )
+        if self.current_lap_under_sc - self.lap_at_sc < laps_under_sc:
+            # Wait longer 
+            return False
+
+        # Now is the right time to send the commands
+        logger.info("Determining if we need to split classes")
+
+        # Get the commands
+        commands = get_split_class_commands(
+            self.drivers.current_drivers,
+            self.drivers.session_info["pace_car_idx"]
+        )
+
+        if len(commands) == 0:
+            logger.info("No class splitting needed")
+            return True
+
+        # Request confirmation from the user
+        if not self._request_class_split_confirmation(commands):
+            logger.info("Class split cancelled by user")
+            return True
+
+        # User confirmed — send the commands
+        self.command_sender.send_commands(commands)
+
+        logger.info("Done splitting classes")
+        return True
 
     def _start_safety_car(self, message=""):
         """Send a yellow flag to iRacing.
@@ -341,6 +419,7 @@ class Generator:
         self.lap_at_sc = max(self.ir["CarIdxLap"])
 
         # Manage wave arounds and pace laps
+        logger.info("Waiting to do wave arounds and pace lap signal")
         waves_done = False
         pace_done = False
         while not waves_done or not pace_done:
@@ -363,6 +442,21 @@ class Generator:
                 break
 
             # Wait 1 second before checking again
+            time.sleep(1)
+
+        # Manage splitting classes
+        logger.info("Waiting to split the classes")
+        while True:
+            # Update the current lap behind safety car
+            self._get_current_lap_under_sc()
+
+            if self._split_classes():
+                break
+
+            # Break the loop if we are shutting down the thread
+            if self._is_shutting_down():
+                break
+
             time.sleep(1)
 
         # Wait for the green flag to be displayed

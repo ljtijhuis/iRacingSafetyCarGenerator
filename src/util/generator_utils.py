@@ -4,7 +4,7 @@ def positions_from_safety_car(car_positions, pace_car_idx):
         0.0 = SC position
         0.1 = 10% of the track behind the SC
         ...
-        
+
         Args:
             car_positions: The list of car positions as provided by the irSDK CarIdxLapDistPct property.
             pace_car_idx: The index of the pacecar in car_positions as provided by the irSDK DriverInfo->PaceCarIdx property.
@@ -24,5 +24,5 @@ def positions_from_safety_car(car_positions, pace_car_idx):
             result.append(pace_car_pos - pos)
         else:
             result.append(pace_car_pos + 1 - pos)
-    
+
     return result

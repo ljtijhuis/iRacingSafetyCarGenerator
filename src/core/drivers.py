@@ -10,6 +10,7 @@ class Driver(TypedDict):
     driver_idx: int
     car_number: str
     car_class_id: int
+    car_class_est_lap_time: float
     is_pace_car: bool
     laps_completed: int
     laps_started: int
@@ -88,6 +89,7 @@ class Drivers:
                     "driver_idx": car_idx,
                     "car_number": driver_details["CarNumber"],
                     "car_class_id": driver_details["CarClassID"],
+                    "car_class_est_lap_time": driver_details["CarClassEstLapTime"],
                     "is_pace_car": driver_details["CarIsPaceCar"] == 1,
                     "laps_completed": laps_completed[car_idx],
                     "laps_started": laps_started[car_idx],

@@ -424,6 +424,7 @@ iRacing accepts commands via chat interface:
 - `!y <message>` → Throw full-course yellow
 - `!p <laps>` → Set pace laps remaining
 - `!w <car_number>` → Wave around specific car
+- `!eol <car_number>` → Send car to end of longest line (class splitting)
 
 ## Key Workflows
 
@@ -576,6 +577,15 @@ _start_safety_car(message)
     │       ├─ Sort commands by position relative to SC (closest first)
     │       │
     │       └─ command_sender.send_commands(commands, delay=0.5s)
+    │
+    ├─► _split_classes() (if class_split_enabled):
+    │   │
+    │   └─► get_split_class_commands(drivers, car_positions, on_pit_road, pace_car_idx)
+    │       ├─ Calculate positions relative to SC
+    │       ├─ Group drivers by CarClassID, sort classes by CarClassEstLapTime
+    │       ├─ Walk grid to find classes out of order
+    │       ├─ Generate "!eol CAR_NUMBER" commands for out-of-order classes
+    │       └─ command_sender.send_commands(commands)
     │
     ├─► if current_lap >= pace_lap AND leader at 50% lap distance AND not pace_done:
     │   │
