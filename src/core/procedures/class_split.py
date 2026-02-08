@@ -1,50 +1,50 @@
 from heapq import heappush, heappop
 
+from core.drivers import Driver
 from util.generator_utils import positions_from_safety_car
 
-def get_split_class_commands(drivers: list[dict], car_positions: list[float], on_pit_road: list[bool], pace_car_idx: int) -> list[str]:
+def get_split_class_commands(drivers: list[Driver], pace_car_idx: int) -> list[str]:
     """ Provide the commands that need to be sent to make sure the cars behind the SC are sorted by their classes.
-        
+
         Args:
-            drivers: The list of cars as provided by the irSDK DriverInfo->Drivers property.
-            car_positions: The list of car positions as provided by the irSDK CarIdxLapDistPct property.
-            on_pit_road: The list booleans indicating if cars are on pit road (CarIdxOnPitRoad)
-            pace_car_idx: The index of the pacecar in car_positions as provided by the irSDK DriverInfo->PaceCarIdx property.
+            drivers: The list of Driver objects from the Drivers data model.
+            pace_car_idx: The index of the pacecar in the drivers list.
 
         Returns:
             List[str]: The commands to send, in order, to split the classes.
     """
     # Get the car positions as seen from the SC
+    car_positions = [driver["lap_distance"] for driver in drivers]
     pos_from_sc = positions_from_safety_car(car_positions, pace_car_idx)
 
-    # Figure out what classes are driving, their CarClassEstLapTime to determine the 
+    # Figure out what classes are driving, their est_lap_time to determine the
     # ordering and what drivers belong to each class
     classes = {}
     drivers_to_class = {}
     for idx, driver in enumerate(drivers):
-        if driver["CarIsPaceCar"] == 1:
+        if driver["is_pace_car"]:
             continue
-        
-        class_info = classes.get(driver["CarClassID"], { "est_lap_time": 0.0, "drivers": set(), "drivers_ordered": [] })
-        class_info["est_lap_time"] = driver["CarClassEstLapTime"]
+
+        class_info = classes.get(driver["car_class_id"], { "est_lap_time": 0.0, "drivers": set(), "drivers_ordered": [] })
+        class_info["est_lap_time"] = driver["car_class_est_lap_time"]
 
         # Ignore cars that are currently in the pit for the sorting order
-        if not on_pit_road[idx]:
+        if not driver["on_pit_road"]:
             class_info["drivers"].add(idx)
-        
+
         # we are keeping a sorted list of drivers based on their position to be able to send EOL in order
         # Note that we do include anyone in the pit here since they could otherwise end up at the front of their class
-        heappush(class_info["drivers_ordered"], (pos_from_sc[idx], idx)) 
-        classes[driver["CarClassID"]] = class_info
+        heappush(class_info["drivers_ordered"], (pos_from_sc[idx], idx))
+        classes[driver["car_class_id"]] = class_info
 
         # Keep track of a driver -> class map to easily check if they are out of order
-        drivers_to_class[idx] = driver["CarClassID"]
-    
+        drivers_to_class[idx] = driver["car_class_id"]
+
     # If there is only one class, skip
     if len(classes) == 1:
         return []
-    
-    # Sort by fastest lap time; this returns a list of (CarClassID, { ... }) tuples 
+
+    # Sort by fastest lap time; this returns a list of (CarClassID, { ... }) tuples
     classes_sorted = sorted(classes.items(), key=lambda item: item[1]["est_lap_time"])
 
     # Check if we need to split the classes by checking for anyone out of order
@@ -55,7 +55,7 @@ def get_split_class_commands(drivers: list[dict], car_positions: list[float], on
     class_pointer = 0
     pos_pointer = 0
     classes_out_of_order = set()
-    drivers_out_of_order = set() 
+    drivers_out_of_order = set()
     # Go through the classes from fastest to slowest
     while class_pointer < len(classes_sorted):
         current_class = classes_sorted[class_pointer][0]
@@ -69,7 +69,7 @@ def get_split_class_commands(drivers: list[dict], car_positions: list[float], on
             current_car = idx_all_sorted[pos_pointer]
 
             # Skip the SC and anyone on pit road
-            if current_car == pace_car_idx or on_pit_road[current_car]:
+            if current_car == pace_car_idx or drivers[current_car]["on_pit_road"]:
                 pos_pointer += 1
                 continue
 
@@ -86,18 +86,18 @@ def get_split_class_commands(drivers: list[dict], car_positions: list[float], on
     # No one is out of order!
     if len(classes_out_of_order) == 0:
         return []
-    
+
     commands = []
     add_rest = False
     for c in classes_sorted:
         current_class = c[0]
         if add_rest or current_class in classes_out_of_order:
             # as soon as a class is out of order, then any slower classes also need to be send EOL commands
-            add_rest = True 
+            add_rest = True
             drivers_ordered = c[1]["drivers_ordered"]
             while len(drivers_ordered) > 0:
                 _, idx = heappop(drivers_ordered)
-                car_number = drivers[idx]["CarNumber"]
+                car_number = drivers[idx]["car_number"]
                 commands.append(f"!eol {car_number} Splitting classes")
 
     return commands

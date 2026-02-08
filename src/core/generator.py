@@ -349,11 +349,10 @@ class Generator:
         logger.info("Determining if we need to split classes")
 
         # Get the commands
-        drivers = self.ir["DriverInfo"]["Drivers"]
-        car_positions = self.ir["CarIdxLapDistPct"]
-        on_pit_road = self.ir["CarIdxOnPitRoad"]
-        pace_car_idx = self.ir["DriverInfo"]["PaceCarIdx"]
-        commands = get_split_class_commands(drivers, car_positions, on_pit_road, pace_car_idx)
+        commands = get_split_class_commands(
+            self.drivers.current_drivers,
+            self.drivers.session_info["pace_car_idx"]
+        )
 
         # Send EOL commands from lead through last in-order
         self.command_sender.send_commands(commands)
