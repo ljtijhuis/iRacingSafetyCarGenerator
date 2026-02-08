@@ -982,29 +982,6 @@ class App(tk.Tk):
         )
         general_row += 1
 
-        # Create class split checkbox
-        logger.debug("Creating class split checkbox")
-        self.var_class_split = tk.IntVar()
-        self.var_class_split.set(1)
-        self.chk_class_split = ttk.Checkbutton(
-            self.frm_general,
-            text="Split classes (Experimental)",
-            variable=self.var_class_split
-        )
-        self.chk_class_split.grid(
-            row=general_row,
-            column=0,
-            columnspan=2,
-            sticky="w",
-            padx=5,
-            pady=5
-        )
-        tooltip.CreateToolTip(
-            self.chk_class_split,
-            self.tooltips_text.get("class_split")
-        )
-        general_row += 1
-
         logger.debug("Creating wave around rules picker")
         self.cmb_wave_around_rules = ttk.Combobox(
             self.frm_wave_arounds,
@@ -1027,6 +1004,28 @@ class App(tk.Tk):
         tooltip.CreateToolTip(
             self.cmb_wave_around_rules,
             self.tooltips_text.get("wave_around_rules")
+        )
+
+        # Create class split checkbox
+        logger.debug("Creating class split checkbox")
+        self.var_class_split = tk.IntVar()
+        self.var_class_split.set(1)
+        self.chk_class_split = ttk.Checkbutton(
+            self.frm_procedures,
+            text="Split classes (Experimental)",
+            variable=self.var_class_split
+        )
+        self.chk_class_split.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=5,
+            pady=5
+        )
+        tooltip.CreateToolTip(
+            self.chk_class_split,
+            self.tooltips_text.get("class_split")
         )
 
         # Create Controls frame
