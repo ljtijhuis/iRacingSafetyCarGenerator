@@ -15,7 +15,8 @@ from core.procedures.wave_arounds import (
 from irsdk import TrkLoc
 
 def create_driver_from_test_data(idx: int, car_number: str, car_class_id: int,
-                                   total_distance: float, on_pit_road: bool) -> Driver:
+                                   total_distance: float, on_pit_road: bool,
+                                   track_loc: TrkLoc = TrkLoc.on_track) -> Driver:
     """Helper to create Driver objects from test data."""
     laps_completed = int(total_distance)
     lap_distance = total_distance - laps_completed
@@ -31,7 +32,7 @@ def create_driver_from_test_data(idx: int, car_number: str, car_class_id: int,
         "laps_started": laps_started,
         "lap_distance": lap_distance,
         "total_distance": total_distance,
-        "track_loc": TrkLoc.on_track,
+        "track_loc": track_loc,
         "on_pit_road": on_pit_road,
     }
 
@@ -513,4 +514,61 @@ def test_wave_ahead_of_class_real_world_example():
 
     expected = setup_data["expected_wave_around_commands"]
     result = wave_ahead_of_class_lead(drivers, pace_car_idx)
+    assert result == expected
+
+
+"""
+## Ineligible track locations (disconnected, in pit stall, approaching pits) ##
+
+Uses the same scenario as "Two leaders lap ahead" but marks some eligible cars
+with ineligible track_loc values so they get skipped.
+
+             S/F   v                       v
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    PC(0.1)   |    B(2.9)  A(1.8)  A(1.7)  A(2.6)  B(1.5)  B(1.4)  C(1.3) C(1.2)
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Class leaders      X                       X                       X
+B(1.5) is disconnected (not_in_world), B(1.4) is in pit stall, A(1.8) is approaching pits
+wave_lapped_cars   -       -       -       -       /       /       -      -
+wave_ahead_of_CL   -       /       X       -       -       -       -      -
+wave_combined      -       /       X       -       /       /       -      -
+"""
+@pytest.fixture
+def setup_data_ineligible_track_loc(setup_data):
+    drivers, pace_car_idx = setup_data
+    drivers[1]["car_class_id"] = 2
+    drivers[1]["total_distance"] = 2.9
+    drivers[1]["laps_completed"] = 2
+    drivers[1]["laps_started"] = 3
+    drivers[1]["lap_distance"] = 0.9
+    drivers[4]["total_distance"] = 2.6
+    drivers[4]["laps_completed"] = 2
+    drivers[4]["laps_started"] = 3
+    drivers[4]["lap_distance"] = 0.6
+    # Mark ineligible track locations
+    drivers[5]["track_loc"] = TrkLoc.not_in_world    # B(1.5) disconnected
+    drivers[6]["track_loc"] = TrkLoc.in_pit_stall    # B(1.4) in pit stall
+    drivers[2]["track_loc"] = TrkLoc.aproaching_pits  # A(1.8) approaching pits
+    return (drivers, pace_car_idx)
+
+def test_wave_lapped_cars_skips_disconnected_and_pit_stall(setup_data_ineligible_track_loc):
+    drivers, pace_car_idx = setup_data_ineligible_track_loc
+    # B(1.5) and B(1.4) would be eligible but are disconnected/in pit stall
+    expected = []
+    result = wave_lapped_cars(drivers, pace_car_idx)
+    assert result == expected
+
+def test_wave_ahead_of_class_lead_skips_approaching_pits(setup_data_ineligible_track_loc):
+    drivers, pace_car_idx = setup_data_ineligible_track_loc
+    # A(1.8) would be eligible but is approaching pits; A(1.7) is still eligible
+    expected = ['!w 3']
+    result = wave_ahead_of_class_lead(drivers, pace_car_idx)
+    assert result == expected
+
+def test_wave_combined_skips_ineligible_track_locations(setup_data_ineligible_track_loc):
+    drivers, pace_car_idx = setup_data_ineligible_track_loc
+    # Only A(1.7) car #3 is eligible across both methods
+    expected = ['!w 3']
+    result = wave_combined(drivers, pace_car_idx)
     assert result == expected
