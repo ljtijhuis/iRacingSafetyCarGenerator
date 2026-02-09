@@ -88,6 +88,18 @@ class App(tk.Tk):
         """
         logger.info("Creating widgets for main application window")
 
+        # Validation styles for Entry widgets
+        style = ttk.Style()
+        style.configure("Error.TEntry", fieldbackground="#ffcccc")
+        style.configure("Warning.TEntry", fieldbackground="#ffffcc")
+
+        # Tracked entry widgets for validation
+        self._validated_entries = [
+            "ent_max_safety_cars", "ent_start_minute", "ent_end_minute",
+            "ent_min_time_between", "ent_laps_under_sc",
+            "ent_laps_before_wave_arounds", "ent_random_prob",
+        ]
+
         # Checkbox for advanced features
         self.var_advanced_features = tk.IntVar()
         self.var_advanced_features.set(0)
@@ -1042,7 +1054,7 @@ class App(tk.Tk):
         self.btn_save_settings = ttk.Button(
             self.frm_controls,
             text="Save Settings",
-            command=self._save_settings
+            command=self._validate_and_save_settings
         )
         self.btn_save_settings.grid(
             row=controls_row,
@@ -1287,6 +1299,97 @@ class App(tk.Tk):
         self.ent_combined_message.delete(0, "end")
         self.ent_combined_message.insert(0, self.settings.accumulative_message)
 
+        # Bind FocusOut on validated entries to trigger inline validation
+        for attr in self._validated_entries:
+            getattr(self, attr).bind("<FocusOut>", lambda e: self._apply_validation_styles())
+
+    def _apply_validation_styles(self):
+        """Run validation and apply visual styles to Entry widgets."""
+        results = self._validate_settings()
+
+        for attr in self._validated_entries:
+            widget = getattr(self, attr)
+            result = results.get(attr)
+            if result is None:
+                widget.configure(style="TEntry")
+            elif result[0] == "error":
+                widget.configure(style="Error.TEntry")
+            elif result[0] == "warning":
+                widget.configure(style="Warning.TEntry")
+
+    def _validate_settings(self):
+        """Validate Entry widget values.
+
+        Returns:
+            dict: {widget_attr_name: ("error"|"warning", message) or None}
+        """
+        results = {}
+
+        def parse_int(value, name):
+            try:
+                return int(value), None
+            except (ValueError, TypeError):
+                return None, f"{name} must be a whole number"
+
+        def parse_float(value, name):
+            try:
+                return float(value), None
+            except (ValueError, TypeError):
+                return None, f"{name} must be a number"
+
+        # Max Safety Cars: int, >= 0 (0 = infinite)
+        max_sc, err = parse_int(self.ent_max_safety_cars.get(), "Max Safety Cars")
+        if err:
+            results["ent_max_safety_cars"] = ("error", err)
+        elif max_sc < 0:
+            results["ent_max_safety_cars"] = ("error", "Max Safety Cars cannot be negative")
+
+        # Earliest Minute: float, >= 0
+        start_min, err = parse_float(self.ent_start_minute.get(), "Earliest Minute")
+        if err:
+            results["ent_start_minute"] = ("error", err)
+        elif start_min < 0:
+            results["ent_start_minute"] = ("warning", "Negative value — detection may never activate")
+
+        # Latest Minute: float, > start_minute
+        end_min, err = parse_float(self.ent_end_minute.get(), "Latest Minute")
+        if err:
+            results["ent_end_minute"] = ("error", err)
+        elif start_min is not None and end_min <= start_min:
+            results["ent_end_minute"] = ("error", "Must be greater than Earliest Minute")
+
+        # Min Time Between: float, >= 0
+        min_between, err = parse_float(self.ent_min_time_between.get(), "Min Time Between")
+        if err:
+            results["ent_min_time_between"] = ("error", err)
+        elif min_between < 0:
+            results["ent_min_time_between"] = ("warning", "Negative value")
+
+        # Laps Under SC: int, >= 1
+        laps_sc, err = parse_int(self.ent_laps_under_sc.get(), "Laps Under SC")
+        if err:
+            results["ent_laps_under_sc"] = ("error", err)
+        elif laps_sc < 1:
+            results["ent_laps_under_sc"] = ("warning", "Less than 1 — safety car will end immediately")
+
+        # Laps Before Wave Arounds: int, >= 0, < laps_under_sc
+        laps_wave, err = parse_int(self.ent_laps_before_wave_arounds.get(), "Laps Before Wave Arounds")
+        if err:
+            results["ent_laps_before_wave_arounds"] = ("error", err)
+        elif laps_wave < 0:
+            results["ent_laps_before_wave_arounds"] = ("warning", "Negative value")
+        elif laps_sc is not None and laps_wave >= laps_sc:
+            results["ent_laps_before_wave_arounds"] = ("warning", "Wave arounds will never happen (>= Laps Under SC)")
+
+        # Random Probability: float, 0.0-1.0
+        prob, err = parse_float(self.ent_random_prob.get(), "Random Probability")
+        if err:
+            results["ent_random_prob"] = ("error", err)
+        elif prob < 0 or prob > 1:
+            results["ent_random_prob"] = ("warning", "Outside 0-1 range")
+
+        return results
+
     def _save_and_run(self):
         """Save the settings to the config file and run the generator.
 
@@ -1294,6 +1397,13 @@ class App(tk.Tk):
             None
         """
         if is_stopped_state(self.generator_state):
+            self._apply_validation_styles()
+            results = self._validate_settings()
+            has_errors = any(r[0] == "error" for r in results.values())
+
+            if has_errors:
+                return  # Red fields already visible
+
             logger.info('Saving settings and starting the generator')
             self._save_settings()
             started = self.generator.run()
@@ -1314,6 +1424,17 @@ class App(tk.Tk):
             self.generator.throw_manual_safety_car()
         else:
             logger.info('Tried to throw a manual SC, but generator not running')
+
+    def _validate_and_save_settings(self):
+        """Validate settings and save if valid."""
+        self._apply_validation_styles()
+        results = self._validate_settings()
+        has_errors = any(r[0] == "error" for r in results.values())
+
+        if has_errors:
+            return  # Red fields already visible
+
+        self._save_settings()
 
     def _save_settings(self):
         """Save the settings to the config file.

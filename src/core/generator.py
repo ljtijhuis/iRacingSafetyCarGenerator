@@ -181,7 +181,7 @@ class Generator:
             self._wait_for_green_flag()
 
             # Loop until the max number of safety car events is reached
-            while self.total_sc_events < max_events and not self._is_shutting_down():
+            while (max_events == 0 or self.total_sc_events < max_events) and not self._is_shutting_down():
                 
                 # Start the performance timer
                 # We do this in a context manager to ensure it is stopped whatever exit point this loop reaches
