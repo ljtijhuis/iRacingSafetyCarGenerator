@@ -121,7 +121,7 @@ def _get_lapped_car_indices(drivers: List[Driver], pace_car_idx: int) -> List[in
 
     # For each driver, check if they're eligible for a wave around
     for driver in drivers:
-        # Skip pace car
+        # Skip pace car, pit road, and disconnected drivers
         if driver["driver_idx"] == pace_car_idx or driver["on_pit_road"] or driver["track_loc"] in [TrkLoc.not_in_world, TrkLoc.in_pit_stall, TrkLoc.aproaching_pits]:
             continue
 
