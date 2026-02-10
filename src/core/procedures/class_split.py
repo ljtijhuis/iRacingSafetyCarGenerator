@@ -1,5 +1,7 @@
 from heapq import heappush, heappop
 
+from irsdk import TrkLoc
+
 from core.drivers import Driver
 from util.generator_utils import positions_from_safety_car
 
@@ -23,6 +25,8 @@ def get_split_class_commands(drivers: list[Driver], pace_car_idx: int) -> list[s
     drivers_to_class = {}
     for idx, driver in enumerate(drivers):
         if driver["is_pace_car"]:
+            continue
+        if driver["track_loc"] == TrkLoc.not_in_world:
             continue
 
         class_info = classes.get(driver["car_class_id"], { "est_lap_time": 0.0, "drivers": set(), "drivers_ordered": [] })
@@ -68,8 +72,8 @@ def get_split_class_commands(drivers: list[Driver], pace_car_idx: int) -> list[s
         while len(current_class_drivers) > 0:
             current_car = idx_all_sorted[pos_pointer]
 
-            # Skip the SC and anyone on pit road
-            if current_car == pace_car_idx or drivers[current_car]["on_pit_road"]:
+            # Skip the SC, anyone on pit road, and disconnected drivers
+            if current_car == pace_car_idx or drivers[current_car]["on_pit_road"] or drivers[current_car]["track_loc"] == TrkLoc.not_in_world:
                 pos_pointer += 1
                 continue
 

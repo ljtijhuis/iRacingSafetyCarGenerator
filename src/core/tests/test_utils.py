@@ -44,6 +44,7 @@ def drivers_from_dump_frame(dump_path: Path, frame_index: int) -> tuple[list[dic
             "is_pace_car": d["CarIsPaceCar"] == 1,
             "lap_distance": telemetry["CarIdxLapDistPct"][idx],
             "on_pit_road": telemetry["CarIdxOnPitRoad"][idx],
+            "track_loc": telemetry["CarIdxTrackSurface"][idx],
         }
         drivers.append(driver)
         if driver["is_pace_car"]:
