@@ -97,6 +97,12 @@
 			"handlers": [
 				"file"
 			]
+		},
+		"core.procedures.class_split": {
+			"level": "DEBUG",
+			"handlers": [
+				"file"
+			]
 		}
 	}
 }
