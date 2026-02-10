@@ -416,6 +416,64 @@ def test_dynamic_threshold_without_race_started_and_after():
 
 
 # End-to-end integration tests for settings → ThresholdChecker behavior
+def test_accumulative_threshold_no_double_count_same_driver(mocker):
+    """Test that a driver with both STOPPED and OFF_TRACK only contributes the highest weight to the accumulative score."""
+    mocker.patch("time.time", return_value=1000.0)
+
+    # Accumulative threshold = 5, stopped weight = 2.0, off_track weight = 1.0
+    # If double-counted, driver1 (stopped + off_track) would contribute 3.0
+    # With fix, driver1 contributes max(2.0, 1.0) = 2.0
+    checker = ThresholdChecker(ThresholdCheckerSettings(
+        time_range=10.0,
+        accumulative_threshold=5.0,
+        accumulative_weights={OFF_TRACK: 1.0, RANDOM: 0.0, STOPPED: 2.0},
+        event_type_threshold={OFF_TRACK: 1000, RANDOM: 1000, STOPPED: 1000},
+    ))
+
+    driver1 = make_driver(track_loc=0, driver_idx=1, lap_distance=0.1)
+    driver2 = make_driver(track_loc=0, driver_idx=2, lap_distance=0.2)
+
+    # Driver 1 is both stopped and off track
+    checker._register_event(STOPPED, driver1, 1000.0)
+    checker._register_event(OFF_TRACK, driver1, 1000.1)
+    # Driver 2 is stopped
+    checker._register_event(STOPPED, driver2, 1000.2)
+
+    # Without fix: acc = 2*2.0 + 1*1.0 = 5.0 (would trigger)
+    # With fix: driver1 contributes max(2.0, 1.0) = 2.0, driver2 contributes 2.0, total = 4.0
+    assert not checker.threshold_met(), "Should not trigger: driver1=2.0 (max of stopped/off_track) + driver2=2.0 = 4.0 < 5.0"
+
+    # Add another driver to push over threshold
+    driver3 = make_driver(track_loc=0, driver_idx=3, lap_distance=0.3)
+    checker._register_event(OFF_TRACK, driver3, 1000.3)
+    # Now: driver1=2.0 + driver2=2.0 + driver3=1.0 = 5.0
+    assert checker.threshold_met(), "Should trigger: 2.0 + 2.0 + 1.0 = 5.0 >= 5.0"
+
+
+def test_accumulative_threshold_per_event_type_still_counts_both(mocker):
+    """Test that per-event-type thresholds still count a driver for each event type independently."""
+    mocker.patch("time.time", return_value=1000.0)
+
+    checker = ThresholdChecker(ThresholdCheckerSettings(
+        time_range=10.0,
+        accumulative_threshold=1000,  # High, won't trigger
+        accumulative_weights={OFF_TRACK: 1.0, RANDOM: 0.0, STOPPED: 2.0},
+        event_type_threshold={OFF_TRACK: 2, RANDOM: 1000, STOPPED: 2},
+    ))
+
+    driver1 = make_driver(track_loc=0, driver_idx=1, lap_distance=0.1)
+    driver2 = make_driver(track_loc=0, driver_idx=2, lap_distance=0.2)
+
+    # Both drivers are off track
+    checker._register_event(OFF_TRACK, driver1, 1000.0)
+    checker._register_event(OFF_TRACK, driver2, 1000.1)
+    # Driver 1 is also stopped - should not affect the OFF_TRACK per-type threshold
+    checker._register_event(STOPPED, driver1, 1000.2)
+
+    # OFF_TRACK threshold of 2 is met (driver1 + driver2)
+    assert checker.threshold_met(), "Per-event-type threshold should still count both drivers for OFF_TRACK"
+
+
 def test_from_settings_off_weight_affects_threshold_behavior(mocker):
     """Test that changing off_weight in settings actually changes when threshold triggers."""
     mocker.patch("time.time", return_value=1000.0)

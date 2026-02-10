@@ -340,7 +340,14 @@ class ThresholdChecker:
                 return True
                 
         # Check accumulative threshold
-        acc = sum(event_counts[det] * self._settings.accumulative_weights[det] for det in DetectorEventTypes)
+        # Each driver only contributes their highest-weighted event type
+        # to avoid double-counting (e.g. a driver both stopped and off-track)
+        driver_max_weights: dict[int, float] = {}
+        for driver_idx, event_type, driver_obj in cluster:
+            weight = self._settings.accumulative_weights.get(event_type, 0.0)
+            if driver_idx not in driver_max_weights or weight > driver_max_weights[driver_idx]:
+                driver_max_weights[driver_idx] = weight
+        acc = sum(driver_max_weights.values())
         acc_threshold = self._settings.accumulative_threshold * dynamic_multiplier
             
         if acc >= acc_threshold:
