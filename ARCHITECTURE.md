@@ -642,8 +642,9 @@ threshold_checker.threshold_met()
         ├─► Check per-event-type thresholds
         │   └─ For each event type: count >= (threshold * multiplier)?
         │
-        ├─► Check accumulative threshold
-        │   ├─ weighted_sum ← sum(count * weight for each type)
+        ├─► Check accumulative threshold (per-driver max weight)
+        │   ├─ For each driver, use only the highest-weighted event type
+        │   ├─ weighted_sum ← sum(max weight per driver)
         │   └─ weighted_sum >= (accumulative_threshold * multiplier)?
         │
         └─ Return True if either check passes
