@@ -473,9 +473,18 @@ See [ARCHITECTURE.md - Extension Points](ARCHITECTURE.md#adding-a-new-detector) 
 - **Discussions:** Use GitHub Discussions for questions and ideas
 - **Pull Requests:** Reference related issues in your PR description
 
-### Project Maintainers
+### Contributors
 
-- [Joshua Abbott Salazar](https://github.com/joshjaysalazar) - Project Creator
+Thank you to everyone who has contributed to this project!
+
+- [Joshua Abbott Salazar](https://github.com/joshjaysalazar)
+- [Lars Tijhuis](https://github.com/ljtijhuis)
+- [Craig Reese](https://github.com/reeseca90)
+- [Ethan Orr](https://github.com/ethanorr)
+- [Patrick O'Doherty](https://github.com/patrickod)
+- [Praneeth Ellanti](https://github.com/praneetheus)
+- [Garreth Hamm](https://github.com/garreth878)
+- [Paulo Brito](https://github.com/paulorsbrito)
 
 ---
 
