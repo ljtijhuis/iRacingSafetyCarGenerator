@@ -481,6 +481,105 @@ def test_wave_combined_skips_pitted_cars(setup_data_skip_pits):
 
 
 """
+## Disconnected drivers should not be waved ##
+
+             S/F
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    PC(0.1)   |    A(2.9)  A(2.8)  A(1.7)  A(-1)   B(1.5)  B(-1)
+<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
+Class leaders      X
+A(-1) and B(-1) are disconnected (track_loc = not_in_world, laps = -1)
+These should NOT be waved even though laps_started=-1 < threshold
+
+wave_lapped_cars   -       -       X       /       -       /
+wave_ahead_of_CL   -       -       -       /       -       /
+wave_combined      -       -       X       /       -       /
+"""
+@pytest.fixture
+def setup_data_disconnected_drivers(setup_data):
+    drivers, pace_car_idx = setup_data
+    # Reduce to 7 cars: PC, 4xA, 2xB
+    drivers = drivers[:7]
+
+    # Setup: A(2.9) is class lead
+    drivers[1]["car_class_id"] = 1
+    drivers[1]["total_distance"] = 2.9
+    drivers[1]["laps_completed"] = 2
+    drivers[1]["laps_started"] = 3
+    drivers[1]["lap_distance"] = 0.9
+    drivers[1]["car_number"] = "1"
+
+    # A(2.8) is 2nd in class
+    drivers[2]["car_class_id"] = 1
+    drivers[2]["total_distance"] = 2.8
+    drivers[2]["laps_completed"] = 2
+    drivers[2]["laps_started"] = 3
+    drivers[2]["lap_distance"] = 0.8
+    drivers[2]["car_number"] = "2"
+
+    # A(1.7) is lapped - should be waved
+    drivers[3]["car_class_id"] = 1
+    drivers[3]["total_distance"] = 1.7
+    drivers[3]["laps_completed"] = 1
+    drivers[3]["laps_started"] = 2
+    drivers[3]["lap_distance"] = 0.7
+    drivers[3]["car_number"] = "3"
+
+    # A(-1) is DISCONNECTED - should NOT be waved
+    drivers[4]["car_class_id"] = 1
+    drivers[4]["total_distance"] = -2.0
+    drivers[4]["laps_completed"] = -1
+    drivers[4]["laps_started"] = -1
+    drivers[4]["lap_distance"] = -1.0
+    drivers[4]["track_loc"] = TrkLoc.not_in_world
+    drivers[4]["car_number"] = "4"
+
+    # B(1.5) is not lapped (class lead for B)
+    drivers[5]["car_class_id"] = 2
+    drivers[5]["total_distance"] = 1.5
+    drivers[5]["laps_completed"] = 1
+    drivers[5]["laps_started"] = 2
+    drivers[5]["lap_distance"] = 0.5
+    drivers[5]["car_number"] = "5"
+
+    # B(-1) is DISCONNECTED - should NOT be waved
+    drivers[6]["car_class_id"] = 2
+    drivers[6]["total_distance"] = -2.0
+    drivers[6]["laps_completed"] = -1
+    drivers[6]["laps_started"] = -1
+    drivers[6]["lap_distance"] = -1.0
+    drivers[6]["track_loc"] = TrkLoc.not_in_world
+    drivers[6]["car_number"] = "6"
+
+    return (drivers, pace_car_idx)
+
+def test_wave_lapped_cars_skips_disconnected(setup_data_disconnected_drivers):
+    """Disconnected drivers (track_loc=not_in_world) should not be waved."""
+    drivers, pace_car_idx = setup_data_disconnected_drivers
+    # Only A(1.7) car #3 should be waved, not the disconnected #4 and #6
+    expected = ['!w 3']
+    result = wave_lapped_cars(drivers, pace_car_idx)
+    assert result == expected
+
+def test_wave_ahead_of_class_lead_skips_disconnected(setup_data_disconnected_drivers):
+    """Disconnected drivers should not be waved even if they appear ahead of class lead."""
+    drivers, pace_car_idx = setup_data_disconnected_drivers
+    # No cars are ahead of their class lead in running order
+    expected = []
+    result = wave_ahead_of_class_lead(drivers, pace_car_idx)
+    assert result == expected
+
+def test_wave_combined_skips_disconnected(setup_data_disconnected_drivers):
+    """Combined wave around should also skip disconnected drivers."""
+    drivers, pace_car_idx = setup_data_disconnected_drivers
+    # Only A(1.7) car #3 should be waved
+    expected = ['!w 3']
+    result = wave_combined(drivers, pace_car_idx)
+    assert result == expected
+
+
+"""
 This test case represents a real world example where the commands were sent right when the
 SC came out and there were some cars stuck between the SC and the overall lead. It showed
 an issue where the trapped cars were automatically let by, but we waved them too so they gained

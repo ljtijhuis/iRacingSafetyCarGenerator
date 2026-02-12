@@ -121,8 +121,10 @@ def _get_lapped_car_indices(drivers: List[Driver], pace_car_idx: int) -> List[in
 
     # For each driver, check if they're eligible for a wave around
     for driver in drivers:
-        # Skip pace car
-        if driver["driver_idx"] == pace_car_idx or driver["on_pit_road"] or driver["track_loc"] in [TrkLoc.not_in_world, TrkLoc.in_pit_stall, TrkLoc.aproaching_pits]:
+        idx = driver["driver_idx"]
+        # Skip pace car, pit road, and disconnected drivers
+        if idx == pace_car_idx or driver["on_pit_road"] or driver["track_loc"] in [TrkLoc.not_in_world, TrkLoc.in_pit_stall, TrkLoc.aproaching_pits]:
+            logger.debug(f"Skipping driver idx {idx} #{driver['car_number']} (pace car, on pit road, or ineligible track location)")
             continue
 
         # Get the class ID for the current driver
@@ -130,6 +132,7 @@ def _get_lapped_car_indices(drivers: List[Driver], pace_car_idx: int) -> List[in
 
         # If the class ID isn't in the class IDs list, skip the driver
         if driver_class not in class_ids:
+            logger.debug(f"Skipping driver idx {idx} #{driver['car_number']} (class {driver_class} not in class list)")
             continue
 
         is_eligible = False
@@ -137,18 +140,23 @@ def _get_lapped_car_indices(drivers: List[Driver], pace_car_idx: int) -> List[in
         # If driver started 2 or fewer laps than class leader, wave them
         lap_target = highest_lap[driver_class][0] - 2
         if driver["laps_started"] <= lap_target:
+            logger.debug(f"Driver idx {idx} #{driver['car_number']} eligible: laps_started {driver['laps_started']} <= target {lap_target} (2+ laps behind)")
             is_eligible = True
 
         # If they started 1 fewer laps & are behind on track, wave them
         lap_target = highest_lap[driver_class][0] - 1
         track_pos_target = highest_lap[driver_class][1]
         if driver["laps_started"] == lap_target and driver["lap_distance"] < track_pos_target:
+            logger.debug(f"Driver idx {idx} #{driver['car_number']} eligible: 1 lap behind and track pos {driver['lap_distance']:.3f} < leader {track_pos_target:.3f}")
             is_eligible = True
 
         # If eligible, add driver index to the list
         if is_eligible:
             eligible_driver_indices.append(driver["driver_idx"])
+        else:
+            logger.debug(f"Driver idx {idx} #{driver['car_number']} not eligible (laps_started {driver['laps_started']}, class leader laps {highest_lap[driver_class][0]})")
 
+    logger.debug(f"Lapped car eligible indices: {eligible_driver_indices}")
     return eligible_driver_indices
 
 def wave_lapped_cars(drivers: List[Driver], pace_car_idx: int) -> List[str]:
@@ -195,9 +203,11 @@ def _get_ahead_of_class_lead_indices(drivers: List[Driver], pace_car_idx: int) -
     for driver in drivers:
         idx = driver["driver_idx"]
         if idx == pace_car_idx:
+            logger.debug(f"Skipping driver idx {idx} (pace car) for class lead identification")
             continue
         car_class = driver["car_class_id"]
         if car_class not in class_leads or driver["total_distance"] > drivers[class_leads[car_class][0]]["total_distance"]:
+            logger.debug(f"Driver idx {idx} #{driver['car_number']} is new class lead for class {car_class} (total_distance {driver['total_distance']:.3f})")
             class_leads[car_class] = (idx, relative_to_sc[idx])
 
     logger.debug(f"Class leads: {class_leads}")
@@ -209,6 +219,8 @@ def _get_ahead_of_class_lead_indices(drivers: List[Driver], pace_car_idx: int) -
         if driver["total_distance"] > lead_position:
             lead_idx = driver["driver_idx"]
             lead_position = driver["total_distance"]
+
+    logger.info(f"Overall lead: driver idx {lead_idx} (total_distance {lead_position:.3f})")
 
     # Collect eligible driver indices
     eligible_driver_indices = []
@@ -230,8 +242,12 @@ def _get_ahead_of_class_lead_indices(drivers: List[Driver], pace_car_idx: int) -
             and relative_to_sc[idx] < class_lead_position # They are ahead of their class lead
             and relative_to_sc[idx] > relative_to_sc[lead_idx] # and behind the overall lead
             ):
+            logger.debug(f"Driver idx {idx} #{driver['car_number']} eligible: ahead of class lead and behind overall lead")
             eligible_driver_indices.append(idx)
+        else:
+            logger.debug(f"Driver idx {idx} #{driver['car_number']} not eligible: not ahead of class lead or is overall lead")
 
+    logger.debug(f"Ahead of class lead eligible indices: {eligible_driver_indices}")
     return eligible_driver_indices
 
 def wave_ahead_of_class_lead(drivers: List[Driver], pace_car_idx: int) -> List[str]:
