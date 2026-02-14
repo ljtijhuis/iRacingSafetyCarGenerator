@@ -115,6 +115,43 @@ class Settings:
     def off_track_message(self, value: str) -> None:
         self._config.set("settings", "off_track_message", value)
     
+    # Meatball / repairs required settings
+    @property
+    def meatball_detector_enabled(self) -> bool:
+        """Enable meatball (repairs required) detection."""
+        return self._config["settings"].getboolean("meatball_detector_enabled", fallback=True)
+
+    @meatball_detector_enabled.setter
+    def meatball_detector_enabled(self, value: bool) -> None:
+        self._config.set("settings", "meatball_detector_enabled", str(int(value)))
+
+    @property
+    def meatball_cars_threshold(self) -> int:
+        """Minimum meatball cars to trigger safety car."""
+        return self._config["settings"].getint("meatball_cars_threshold", fallback=99999)
+
+    @meatball_cars_threshold.setter
+    def meatball_cars_threshold(self, value: int) -> None:
+        self._config.set("settings", "meatball_cars_threshold", str(value))
+
+    @property
+    def meatball_message(self) -> str:
+        """Message for meatball safety car."""
+        return self._config["settings"].get("meatball_message", fallback="Car requires repairs")
+
+    @meatball_message.setter
+    def meatball_message(self, value: str) -> None:
+        self._config.set("settings", "meatball_message", value)
+
+    @property
+    def meatball_weight(self) -> float:
+        """Weight for meatball cars in combined calculation."""
+        return self._config["settings"].getfloat("meatball_weight", fallback=0.0)
+
+    @meatball_weight.setter
+    def meatball_weight(self, value: float) -> None:
+        self._config.set("settings", "meatball_weight", str(value))
+
     # Race start multiplier settings
     @property
     def race_start_threshold_multiplier(self) -> float:

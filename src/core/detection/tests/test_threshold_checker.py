@@ -144,20 +144,17 @@ def test_cleanup(threshold_checker, mocker):
     
 def test_threshold_checker_settings_from_settings():
     # Mock settings object with the typed wrapper interface
-    class MockSettings:
-        def __init__(self):
-            self.event_time_window_seconds = 5.0
-            self.off_track_cars_threshold = 5
-            self.stopped_cars_threshold = 3
-            self.accumulative_threshold = 10
-            self.off_track_weight = 1.0
-            self.stopped_weight = 2.0
-            self.proximity_filter_enabled = False
-            self.proximity_filter_distance_percentage = 0.05
-            self.race_start_threshold_multiplier = 1.0
-            self.race_start_threshold_multiplier_time_seconds = 300.0
+    settings = dict_to_config({
+        "settings": {
+            "event_time_window_seconds": "5.0",
+            "off_track_cars_threshold": "5",
+            "stopped_cars_threshold": "3",
+            "accumulative_threshold": "10",
+            "off_track_weight": "1.0",
+            "stopped_weight": "2.0",
+        }
+    })
 
-    settings = MockSettings()
     threshold_checker_settings = ThresholdCheckerSettings.from_settings(settings)
     assert threshold_checker_settings.time_range == 5.0
     assert threshold_checker_settings.event_type_threshold[OFF_TRACK] == 5

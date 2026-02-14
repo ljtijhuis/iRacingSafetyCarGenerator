@@ -79,7 +79,7 @@ def full_detection_system(racing_drivers):
             "proximity_filter_distance_percentage": "0.1",  # 10% of track
         }
     }
-    
+
     settings = dict_to_config(settings_dict)
     
     # Create detector system
@@ -267,12 +267,12 @@ class TestEndToEndDetectionPipeline:
                 "race_start_threshold_multiplier_time_seconds": "300",  # For 5 minutes
                 "proximity_filter_enabled": "1",
                 "proximity_filter_distance_percentage": "0.1",
-            }
+                }
         })
-        
+
         detector_settings = DetectorSettings.from_settings(settings)
         detector = Detector.build_detector(detector_settings, racing_drivers)
-        
+
         # Session just started - should get dynamic scaling
         threshold_settings = ThresholdCheckerSettings.from_settings(settings)
         threshold_checker = ThresholdChecker(threshold_settings)
@@ -317,15 +317,16 @@ class TestEndToEndDetectionPipeline:
                 "race_start_threshold_multiplier": "1.0", "race_start_threshold_multiplier_time_seconds": "300",
                 "proximity_filter_enabled": "0",
                 "proximity_filter_distance_percentage": "0.05",
+                "meatball_detector_enabled": "0",
             }
         })
-        
-        detector_settings = DetectorSettings.from_settings(settings)  
+
+        detector_settings = DetectorSettings.from_settings(settings)
         detector = Detector.build_detector(detector_settings, racing_drivers)
-        
+
         threshold_settings = ThresholdCheckerSettings.from_settings(settings)
         threshold_checker = ThresholdChecker(threshold_settings)
-        
+
         # Simulate race started to enable random detector
         detector.race_started(1000.0)
         
@@ -381,9 +382,9 @@ class TestEndToEndDetectionPipeline:
                 "accumulative_threshold": "10", "off_track_weight": "1.0", "stopped_weight": "2.0",
                 "race_start_threshold_multiplier": "1.0", "race_start_threshold_multiplier_time_seconds": "300",
                 "proximity_filter_enabled": "1", "proximity_filter_distance_percentage": "0.1",
-            }
+                }
         })
-        
+
         detector_settings = DetectorSettings.from_settings(settings)
         detector = Detector.build_detector(detector_settings, large_grid)
         

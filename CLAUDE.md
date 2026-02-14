@@ -28,4 +28,9 @@ Read these files for full project context:
 - `.ai-context.md` — Patterns, conventions, testing requirements, extension points, gotchas, and post-implementation checklist
 - `.ai-modules.md` — Module-by-module reference with responsibilities and dependencies
 - `ARCHITECTURE.md` — Full system design documentation
+- `CONTRIBUTING.md` — Development environment setup, commit conventions, and PR process
 - `docs/RACING_CONCEPTS.md` — Racing domain terminology
+
+## Documentation Updates
+
+After implementing changes, **always review and update** the documentation files listed above (plus `README.md` and this file) when relevant. See the Post-Implementation Checklist in `.ai-context.md` for the full list and criteria. Skipping documentation updates causes knowledge drift.

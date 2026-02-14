@@ -29,15 +29,17 @@ class ThresholdCheckerSettings:
     accumulative_threshold: float = 10.0
     accumulative_weights: dict = field(
         default_factory=lambda: {
-            DetectorEventTypes.OFF_TRACK: 1.0, 
+            DetectorEventTypes.OFF_TRACK: 1.0,
+            DetectorEventTypes.MEATBALL: 0.0,
             DetectorEventTypes.RANDOM: 0.0, # Random events do not contribute to the accumulative threshold
             DetectorEventTypes.STOPPED: 2.0,
         }
-    ) 
+    )
     event_type_threshold: dict = field(
         default_factory=lambda: {
             DetectorEventTypes.OFF_TRACK: 4.0,
-            DetectorEventTypes.RANDOM: 1.0, 
+            DetectorEventTypes.MEATBALL: 99999,
+            DetectorEventTypes.RANDOM: 1.0,
             DetectorEventTypes.STOPPED: 2.0,
         }
     )
@@ -50,7 +52,10 @@ class ThresholdCheckerSettings:
     def __post_init__(self):
         # Ensure RANDOM event type is always present with correct defaults
         self.accumulative_weights[DetectorEventTypes.RANDOM] = 0.0
-        self.event_type_threshold[DetectorEventTypes.RANDOM] = 1.0 
+        self.event_type_threshold[DetectorEventTypes.RANDOM] = 1.0
+        # Ensure MEATBALL event type is always present with correct defaults
+        self.accumulative_weights.setdefault(DetectorEventTypes.MEATBALL, 0.0)
+        self.event_type_threshold.setdefault(DetectorEventTypes.MEATBALL, 99999)
 
     @staticmethod
     def from_settings(settings):
@@ -59,11 +64,13 @@ class ThresholdCheckerSettings:
             accumulative_threshold=settings.accumulative_threshold,
             accumulative_weights={
                 DetectorEventTypes.OFF_TRACK: settings.off_track_weight,
+                DetectorEventTypes.MEATBALL: settings.meatball_weight,
                 DetectorEventTypes.RANDOM: 0.0, # Random events do not contribute to the accumulative threshold
                 DetectorEventTypes.STOPPED: settings.stopped_weight,
             },
             event_type_threshold={
                 DetectorEventTypes.OFF_TRACK: settings.off_track_cars_threshold,
+                DetectorEventTypes.MEATBALL: settings.meatball_cars_threshold,
                 DetectorEventTypes.RANDOM: 1.0, # Random does not have a threshold, it is just a flag
                 DetectorEventTypes.STOPPED: settings.stopped_cars_threshold,
             },

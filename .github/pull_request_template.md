@@ -32,9 +32,11 @@ Please describe the tests that you ran to verify your changes. Provide instructi
 
 Please check the boxes below if your changes affect these documentation files:
 
-- [ ] Updated [.ai-context.md](../.ai-context.md) if adding new patterns or conventions
-- [ ] Updated [ARCHITECTURE.md](../ARCHITECTURE.md) if changing system design or workflows
-- [ ] Updated [.ai-modules.md](../.ai-modules.md) if adding new modules or changing module responsibilities
-- [ ] Updated [README.md](../README.md) if changing user-facing features or setup instructions
-- [ ] Updated [docs/RACING_CONCEPTS.md](../docs/RACING_CONCEPTS.md) if adding new racing concepts or terminology
+- [ ] Updated [ARCHITECTURE.md](../ARCHITECTURE.md) if changing system design, components, data flow, or workflows
+- [ ] Updated [.ai-modules.md](../.ai-modules.md) if adding/removing modules or changing module responsibilities/dependencies
+- [ ] Updated [.ai-context.md](../.ai-context.md) if adding new patterns, conventions, or gotchas
+- [ ] Updated [CLAUDE.md](../CLAUDE.md) if changing commands, context files, or workflow instructions
+- [ ] Updated [CONTRIBUTING.md](../CONTRIBUTING.md) if changing development setup, commit conventions, or PR process
+- [ ] Updated [README.md](../README.md) if changing user-facing features, setup instructions, or configuration
+- [ ] Updated [docs/RACING_CONCEPTS.md](../docs/RACING_CONCEPTS.md) if adding new racing concepts or domain terminology
 - [ ] No documentation updates needed

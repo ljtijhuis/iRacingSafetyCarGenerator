@@ -26,6 +26,7 @@
 │  │  │ (current/  │→ │ - Random     │→ │ - Sliding window│→ │   │
 │  │  │  previous) │  │ - Stopped    │  │ - Proximity     │  │   │
 │  │  │            │  │ - OffTrack   │  │ - Thresholds    │  │   │
+│  │  │            │  │ - Meatball   │  │                 │  │   │
 │  │  └────────────┘  └──────────────┘  └─────────────────┘  │   │
 │  │                                              │            │   │
 │  │                                              ▼            │   │
@@ -84,8 +85,11 @@ Detector (Composite)
     ├─► StoppedDetector
     │   └─ Compares total_distance between frames
     │
-    └─► OffTrackDetector
-        └─ Checks TrkLoc.off_track status
+    ├─► OffTrackDetector
+    │   └─ Checks TrkLoc.off_track status
+    │
+    └─► MeatballDetector
+        └─ Checks CarIdxSessionFlags for irsdk.Flags.repair
             ↓
         All results bundled into BundledDetectedEvents
             ↓
@@ -105,6 +109,7 @@ Detector (Composite)
    - RandomDetector: Check probability window
    - StoppedDetector: Compare current vs previous total_distance
    - OffTrackDetector: Check track_loc status
+   - MeatballDetector: Check session_flags for repair flag
                          ↓
 3. BundledDetectedEvents → Bundle all results
                          ↓
@@ -138,6 +143,9 @@ def build_detector(settings: DetectorSettings, drivers: Drivers) -> "Detector":
 
     if settings.off_track_detector_enabled:
         detectors.append(OffTrackDetector(drivers, settings.off_track_detector_settings))
+
+    if settings.meatball_detector_enabled:
+        detectors.append(MeatballDetector(drivers))
 
     return Detector(detectors)
 ```
@@ -288,6 +296,7 @@ class Driver(TypedDict):
     total_distance: float    # laps_completed + lap_distance
     track_loc: TrkLoc        # SDK enum: on_track, off_track, in_pit_stall, etc.
     on_pit_road: bool        # On pit entry/exit road
+    session_flags: int       # Per-car session flags (e.g., irsdk.Flags.repair for meatball)
 ```
 
 **Key Field: total_distance**
@@ -366,6 +375,7 @@ class DetectorSettings:
     stopped_detector_settings: StoppedDetectorSettings = field(default_factory=StoppedDetectorSettings)
     off_track_detector_enabled: bool = False
     off_track_detector_settings: OffTrackDetectorSettings = field(default_factory=OffTrackDetectorSettings)
+    meatball_detector_enabled: bool = True
 
     @classmethod
     def from_settings(cls, settings: Settings) -> "DetectorSettings":
@@ -523,7 +533,8 @@ while not shutdown_event.is_set() and total_sc_events < max_events:
     │       │   └─ result ← detector.detect()
     │       │       ├─ RandomDetector: Check probability
     │       │       ├─ StoppedDetector: Compare total_distance
-    │       │       └─ OffTrackDetector: Check track_loc
+    │       │       ├─ OffTrackDetector: Check track_loc
+    │       │       └─ MeatballDetector: Check session_flags
     │       │
     │       └─ Bundle all results → BundledDetectedEvents
     │
@@ -676,6 +687,7 @@ src/core/
     ├── stopped_detector.py
     ├── off_track_detector.py
     ├── random_detector.py
+    ├── meatball_detector.py
     └── tests/
         ├── __init__.py
         ├── test_detector.py
@@ -683,6 +695,7 @@ src/core/
         ├── test_stopped_detector.py
         ├── test_off_track_detector.py
         ├── test_random_detector.py
+        ├── test_meatball_detector.py
         └── test_end_to_end_integration.py
 ```
 

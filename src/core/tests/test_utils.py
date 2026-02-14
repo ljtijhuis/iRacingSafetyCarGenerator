@@ -45,6 +45,7 @@ def drivers_from_dump_frame(dump_path: Path, frame_index: int) -> tuple[list[dic
             "lap_distance": telemetry["CarIdxLapDistPct"][idx],
             "on_pit_road": telemetry["CarIdxOnPitRoad"][idx],
             "track_loc": telemetry["CarIdxTrackSurface"][idx],
+            "session_flags": telemetry["CarIdxSessionFlags"][idx],
         }
         drivers.append(driver)
         if driver["is_pace_car"]:
@@ -102,7 +103,7 @@ class MockDrivers:
 
 def make_driver(track_loc=TrkLoc.on_track, laps_completed=0, lap_distance=0.0, driver_idx=0, is_pace_car=False,
                 car_number="0", car_class_id=0, car_class_est_lap_time=0.0, on_pit_road=False,
-                laps_started=0, total_distance=0.0):
+                laps_started=0, total_distance=0.0, session_flags=0):
     return {
         "driver_idx": driver_idx,
         "car_number": car_number,
@@ -115,7 +116,51 @@ def make_driver(track_loc=TrkLoc.on_track, laps_completed=0, lap_distance=0.0, d
         "total_distance": total_distance,
         "track_loc": track_loc,
         "on_pit_road": on_pit_road,
+        "session_flags": session_flags,
     }
+
+
+def _convert_value(value):
+    """Convert a string setting value to its appropriate Python type."""
+    if value in ("0", "1"):
+        return value == "1"
+    elif "." in str(value):
+        return float(value)
+    else:
+        try:
+            return int(value)
+        except ValueError:
+            return value
+
+
+# Default values for all settings properties that from_settings() methods read.
+# When adding a new detector or setting, add its defaults here so existing tests
+# don't need updating. Tests only need to override settings they care about.
+_SETTINGS_DEFAULTS = {
+    # Detector enables
+    "random_detector_enabled": "1",
+    "stopped_detector_enabled": "1",
+    "off_track_detector_enabled": "1",
+    "meatball_detector_enabled": "1",
+    # Random detector
+    "random_probability": "0.1",
+    "detection_start_minute": "0",
+    "detection_end_minute": "30",
+    "random_max_safety_cars": "5",
+    # Threshold checker
+    "event_time_window_seconds": "10.0",
+    "off_track_cars_threshold": "4",
+    "stopped_cars_threshold": "2",
+    "meatball_cars_threshold": "99999",
+    "accumulative_threshold": "10",
+    "off_track_weight": "1.0",
+    "stopped_weight": "2.0",
+    "meatball_weight": "0.0",
+    "proximity_filter_enabled": "0",
+    "proximity_filter_distance_percentage": "0.05",
+    "race_start_threshold_multiplier": "1.0",
+    "race_start_threshold_multiplier_time_seconds": "300.0",
+}
 
 
 def dict_to_config(settings_dict):
@@ -123,26 +168,19 @@ def dict_to_config(settings_dict):
 
     This function creates a mock Settings object that mimics the behavior of the
     actual Settings class, with property access for all settings values.
+
+    All settings start with sensible defaults (see _SETTINGS_DEFAULTS) so that
+    tests only need to specify the settings they care about. This prevents
+    breakage when new detectors or settings are added.
     """
     mock_settings = Mock()
 
-    # Extract the settings section
-    settings_section = settings_dict.get("settings", {})
+    # Start with defaults, then overlay user-provided values
+    merged = dict(_SETTINGS_DEFAULTS)
+    merged.update(settings_dict.get("settings", {}))
 
-    # Set properties on the mock based on the dict
-    for key, value in settings_section.items():
-        # Convert string values to appropriate types
-        if value in ("0", "1"):
-            # Boolean values
-            setattr(mock_settings, key, value == "1")
-        elif "." in str(value):
-            # Float values
-            setattr(mock_settings, key, float(value))
-        else:
-            # Try int, fallback to string
-            try:
-                setattr(mock_settings, key, int(value))
-            except ValueError:
-                setattr(mock_settings, key, value)
+    # Set properties on the mock based on the merged dict
+    for key, value in merged.items():
+        setattr(mock_settings, key, _convert_value(value))
 
     return mock_settings
