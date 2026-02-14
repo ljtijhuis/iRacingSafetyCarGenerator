@@ -133,14 +133,107 @@ def test_send_wave_arounds_no_eligible_cars(generator, mocker):
     generator.drivers.current_drivers = []
     generator.drivers.session_info = {"pace_car_idx": 0}
 
-    mock_wave_around_func = mocker.patch("core.generator.wave_arounds_factory", return_value=lambda *args: [])
+    mocker.patch("core.generator.wave_arounds_factory", return_value=lambda *args: [])
     mock_command_sender = mocker.patch.object(generator.command_sender, "send_commands")
 
     generator.ir = MagicMock()
 
     result = generator._send_wave_arounds()
-    mock_command_sender.assert_called_once_with([])
+    mock_command_sender.assert_not_called()
     assert result is True
+
+
+def test_send_wave_arounds_confirm_enabled_user_confirms(generator, mocker):
+    """Test wave arounds with confirmation enabled and user confirms."""
+    generator.master.settings.wave_arounds_enabled = True
+    generator.master.settings.wave_arounds_confirm = True
+    generator.master.settings.laps_before_wave_arounds = 1
+    generator.master.settings.wave_around_rules_index = 0
+    generator.lap_at_sc = 5
+    generator.current_lap_under_sc = 7
+
+    generator.drivers.current_drivers = []
+    generator.drivers.session_info = {"pace_car_idx": 0}
+
+    commands = ["!w 1", "!w 2"]
+    mocker.patch("core.generator.wave_arounds_factory", return_value=lambda *args: commands)
+    mocker.patch.object(generator, "_request_wave_around_confirmation", return_value=True)
+    mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+    result = generator._send_wave_arounds()
+
+    assert result is True
+    mock_send.assert_called_once_with(commands)
+
+
+def test_send_wave_arounds_confirm_enabled_user_cancels(generator, mocker):
+    """Test wave arounds with confirmation enabled and user cancels."""
+    generator.master.settings.wave_arounds_enabled = True
+    generator.master.settings.wave_arounds_confirm = True
+    generator.master.settings.laps_before_wave_arounds = 1
+    generator.master.settings.wave_around_rules_index = 0
+    generator.lap_at_sc = 5
+    generator.current_lap_under_sc = 7
+
+    generator.drivers.current_drivers = []
+    generator.drivers.session_info = {"pace_car_idx": 0}
+
+    commands = ["!w 1", "!w 2"]
+    mocker.patch("core.generator.wave_arounds_factory", return_value=lambda *args: commands)
+    mocker.patch.object(generator, "_request_wave_around_confirmation", return_value=False)
+    mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+    result = generator._send_wave_arounds()
+
+    assert result is True
+    mock_send.assert_not_called()
+
+
+def test_send_wave_arounds_confirm_disabled_sends_directly(generator, mocker):
+    """Test wave arounds with confirmation disabled sends without dialog."""
+    generator.master.settings.wave_arounds_enabled = True
+    generator.master.settings.wave_arounds_confirm = False
+    generator.master.settings.laps_before_wave_arounds = 1
+    generator.master.settings.wave_around_rules_index = 0
+    generator.lap_at_sc = 5
+    generator.current_lap_under_sc = 7
+
+    generator.drivers.current_drivers = []
+    generator.drivers.session_info = {"pace_car_idx": 0}
+
+    commands = ["!w 1", "!w 2"]
+    mocker.patch("core.generator.wave_arounds_factory", return_value=lambda *args: commands)
+    mock_request = mocker.patch.object(generator, "_request_wave_around_confirmation")
+    mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+    result = generator._send_wave_arounds()
+
+    assert result is True
+    mock_request.assert_not_called()
+    mock_send.assert_called_once_with(commands)
+
+
+def test_send_wave_arounds_confirm_no_eligible_cars_skips_dialog(generator, mocker):
+    """Test that confirmation dialog is not shown when no cars are eligible."""
+    generator.master.settings.wave_arounds_enabled = True
+    generator.master.settings.wave_arounds_confirm = True
+    generator.master.settings.laps_before_wave_arounds = 1
+    generator.master.settings.wave_around_rules_index = 0
+    generator.lap_at_sc = 5
+    generator.current_lap_under_sc = 7
+
+    generator.drivers.current_drivers = []
+    generator.drivers.session_info = {"pace_car_idx": 0}
+
+    mocker.patch("core.generator.wave_arounds_factory", return_value=lambda *args: [])
+    mock_request = mocker.patch.object(generator, "_request_wave_around_confirmation")
+    mock_send = mocker.patch.object(generator.command_sender, "send_commands")
+
+    result = generator._send_wave_arounds()
+
+    assert result is True
+    mock_request.assert_not_called()
+    mock_send.assert_not_called()
 
 
 class TestSplitClasses:

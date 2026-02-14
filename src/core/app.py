@@ -1006,6 +1006,27 @@ class App(tk.Tk):
             self.tooltips_text.get("wave_around_rules")
         )
 
+        # Create wave arounds confirmation checkbox
+        logger.debug("Creating wave arounds confirmation checkbox")
+        self.var_wave_arounds_confirm = tk.IntVar()
+        self.chk_wave_arounds_confirm = ttk.Checkbutton(
+            self.frm_wave_arounds,
+            text="Manually confirm wave arounds",
+            variable=self.var_wave_arounds_confirm
+        )
+        self.chk_wave_arounds_confirm.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            sticky="w",
+            padx=5,
+            pady=5
+        )
+        tooltip.CreateToolTip(
+            self.chk_wave_arounds_confirm,
+            self.tooltips_text.get("wave_arounds_confirm")
+        )
+
         # Create class split checkbox
         logger.debug("Creating class split checkbox")
         self.var_class_split = tk.IntVar()
@@ -1273,6 +1294,7 @@ class App(tk.Tk):
         self.ent_laps_before_wave_arounds.delete(0, "end")
         self.ent_laps_before_wave_arounds.insert(0, str(self.settings.laps_before_wave_arounds))
         self.cmb_wave_around_rules.current(self.settings.wave_around_rules_index)
+        self.var_wave_arounds_confirm.set(self.settings.wave_arounds_confirm)
         self.var_class_split.set(self.settings.class_split_enabled)
         self.var_proximity_yellows.set(self.settings.proximity_filter_enabled)
         self.spn_proximity_dist.delete(0, "end")
@@ -1345,6 +1367,7 @@ class App(tk.Tk):
         wave_arounds = self.var_wave_arounds.get()
         laps_before_wave_arounds = self.ent_laps_before_wave_arounds.get()
         wave_around_rules = self.cmb_wave_around_rules.current()
+        wave_arounds_confirm = self.var_wave_arounds_confirm.get()
         class_split = self.var_class_split.get()
         proximity_yellows = self.var_proximity_yellows.get()
         proximity_yellows_distance = self.spn_proximity_dist.get()
@@ -1377,6 +1400,7 @@ class App(tk.Tk):
         self.settings.wave_arounds_enabled = bool(wave_arounds)
         self.settings.laps_before_wave_arounds = int(laps_before_wave_arounds)
         self.settings.wave_around_rules_index = int(wave_around_rules)
+        self.settings.wave_arounds_confirm = bool(wave_arounds_confirm)
         self.settings.class_split_enabled = bool(class_split)
         self.settings.proximity_filter_enabled = bool(proximity_yellows)
         self.settings.proximity_filter_distance_percentage = float(proximity_yellows_distance)
@@ -1429,10 +1453,12 @@ class App(tk.Tk):
             self.lbl_laps_before_wave_arounds.config(state="normal")
             self.ent_laps_before_wave_arounds.config(state="normal")
             self.cmb_wave_around_rules.config(state="normal")
+            self.chk_wave_arounds_confirm.config(state="normal")
         else:
             self.lbl_laps_before_wave_arounds.config(state="disabled")
             self.ent_laps_before_wave_arounds.config(state="disabled")
             self.cmb_wave_around_rules.config(state="disabled")
+            self.chk_wave_arounds_confirm.config(state="disabled")
 
     def show_class_split_confirmation(self):
         """Show a confirmation dialog for class-split EOL commands.
@@ -1449,6 +1475,22 @@ class App(tk.Tk):
 
         self.generator._class_split_confirmed = result
         self.generator.confirm_class_split_event.set()
+
+    def show_wave_around_confirmation(self):
+        """Show a confirmation dialog for wave around commands.
+
+        Called via after() from the generator thread. Runs on the main thread.
+        """
+        commands = self.generator._wave_around_commands
+
+        # Build a readable message listing the wave commands
+        command_list = "\n".join(f"  {i+1}. {cmd}" for i, cmd in enumerate(commands))
+        message = f"The following wave around commands will be sent:\n\n{command_list}\n\nProceed?"
+
+        result = messagebox.askokcancel("Confirm Wave Arounds", message)
+
+        self.generator._wave_around_confirmed = result
+        self.generator.confirm_wave_around_event.set()
 
     def _skip_wait_for_green(self):
         """Move from waiting for green to monitoring session state.

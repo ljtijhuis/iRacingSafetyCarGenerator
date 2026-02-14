@@ -41,6 +41,7 @@ class TestSettings:
         assert settings.min_time_between_safety_cars_minutes == 3.0
         assert settings.laps_under_safety_car == 2
         assert settings.wave_arounds_enabled is True
+        assert settings.wave_arounds_confirm is False
         assert settings.laps_before_wave_arounds == 0
         assert settings.proximity_filter_enabled is True
         assert settings.proximity_filter_distance_percentage == 0.25
@@ -82,6 +83,7 @@ class TestSettings:
         settings.min_time_between_safety_cars_minutes = 20.5
         settings.laps_under_safety_car = 7
         settings.wave_arounds_enabled = False
+        settings.wave_arounds_confirm = True
         settings.laps_before_wave_arounds = 4
         settings.proximity_filter_enabled = True
         settings.proximity_filter_distance_percentage = 0.8
@@ -111,6 +113,7 @@ class TestSettings:
         assert new_settings.min_time_between_safety_cars_minutes == 20.5
         assert new_settings.laps_under_safety_car == 7
         assert new_settings.wave_arounds_enabled is False
+        assert new_settings.wave_arounds_confirm is True
         assert new_settings.laps_before_wave_arounds == 4
         assert new_settings.proximity_filter_enabled is True
         assert new_settings.proximity_filter_distance_percentage == 0.8

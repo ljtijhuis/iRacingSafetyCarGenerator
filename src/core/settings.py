@@ -208,6 +208,15 @@ class Settings:
     def wave_around_rules_index(self, value: int) -> None:
         self._config.set("settings", "wave_around_rules_index", str(value))
 
+    @property
+    def wave_arounds_confirm(self) -> bool:
+        """When enabled, show a confirmation dialog before sending wave around commands."""
+        return self._config["settings"].getboolean("wave_arounds_confirm", fallback=False)
+
+    @wave_arounds_confirm.setter
+    def wave_arounds_confirm(self, value: bool) -> None:
+        self._config.set("settings", "wave_arounds_confirm", str(int(value)))
+
     # Class split settings
     @property
     def class_split_enabled(self) -> bool:

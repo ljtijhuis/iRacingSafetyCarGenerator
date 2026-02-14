@@ -24,5 +24,6 @@
   "combined_min": "The threshold at which a yellow will be thrown based on the number of off-track and stopped cars, multiplied by their respective weight values",
   "off_weight": "The value with which the number of off-track cars is multiplied by to determine the off-track weight for combination yellows.",
   "stopped_weight": "The value with which the number of stopped cars is multiplied by to determine the stopped car weight for combination yellows.",
+  "wave_arounds_confirm": "When enabled, a confirmation dialog will be shown before wave around commands are sent, allowing you to verify which cars will be waved.",
   "class_split": "Sends EOL commands to sort the grid when classes are mixed up. This happens at the one to green signal and needs to be manually confirmed."
 }

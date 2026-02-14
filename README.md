@@ -108,6 +108,7 @@ When enabled, the app sends wave-around commands to lapped cars after a configur
 | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Laps before wave arounds** | Number of laps behind the safety car before wave-around commands are sent, counted from the safety car's out lap. A value of `0` sends wave commands the next time the leader crosses the start/finish line, which may not leave enough time for cars to tow and rejoin. |
 | **Wave around rules**        | The method used to determine which cars get waved around:                                                                                                                                                                                                                |
+| **Manually confirm**         | When enabled, shows a confirmation dialog listing the wave commands before they are sent. This allows you to verify which cars will be waved before the commands go out.                                                                                                 |
 
 Wave around rules options:
 
