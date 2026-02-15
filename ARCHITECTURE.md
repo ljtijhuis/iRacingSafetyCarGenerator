@@ -618,27 +618,29 @@ After wave arounds and pace laps sent:
 ```
 threshold_checker.threshold_met()
 │
-├─► _get_proximity_clusters()
+├─► _get_proximity_clusters()  [cluster first, dedupe after]
 │   │
-│   ├─► _get_latest_events_per_driver()
-│   │   └─ Returns Dict[(driver_idx, event_type)] = (timestamp, driver_obj)
-│   │       (Only most recent event per driver per type)
+│   ├─ Collect ALL events from queue as (timestamp, driver_idx, event_type, driver_obj)
+│   │   (Events stay at their original positions for clustering)
 │   │
 │   └─► if proximity_yellows_enabled:
 │       │
-│       └─► _create_proximity_clusters(latest_events, proximity_distance)
-│           ├─ Extract list of (lap_distance, driver_idx, event_type, driver_obj)
+│       └─► _create_proximity_clusters(all_events, proximity_distance)
+│           ├─ Extract list of (lap_distance, timestamp, driver_idx, event_type, driver_obj)
 │           ├─ Sort by lap_distance
 │           │
 │           ├─► Extend list with +1 lap positions (wrap-around handling)
 │           │   └─ If event at lap_distance 0.95, also add at 1.95
 │           │       (Handles finish line wrap-around)
 │           │
-│           └─► Sliding window clustering
-│               ├─ Start with first event
-│               ├─ Add events within proximity_distance
-│               ├─ When gap > proximity_distance, start new cluster
-│               └─ Returns list of clusters
+│           ├─► Sliding window clustering
+│           │   ├─ Start with first event
+│           │   ├─ Add events within proximity_distance
+│           │   ├─ When gap > proximity_distance, start new cluster
+│           │   └─ A driver CAN appear in multiple clusters at different positions
+│           │
+│           └─► _dedupe_cluster() on each raw cluster
+│               └─ Keep only latest event per (driver_idx, event_type)
 │
 ├─► Calculate dynamic_multiplier
 │   └─ If race_start_time and within dynamic_threshold_time:

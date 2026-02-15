@@ -79,12 +79,37 @@ def test_ignores_not_in_world():
     assert result.drivers[0]["driver_idx"] == 1
 
 
-def test_detects_meatball_in_pit_stall():
-    """Cars in pit stall with meatball flag should still be detected,
-    since the meatball is a car condition (needs repairs) not a position condition."""
+def test_excludes_meatball_on_pit_road():
+    """Cars on pit road with meatball flag should be excluded,
+    since their position is no longer relevant to the incident location."""
     drivers = MockDrivers([
         make_driver(driver_idx=0, track_loc=TrkLoc.in_pit_stall, laps_completed=0,
                     on_pit_road=True, session_flags=MEATBALL_AND_SERVICIBLE),
+    ])
+    detector = MeatballDetector(drivers)
+    result = detector.detect()
+
+    assert len(result.drivers) == 0
+
+
+def test_excludes_meatball_approaching_pits():
+    """Cars approaching pits with meatball flag should be excluded,
+    since their position is no longer relevant to the incident location."""
+    drivers = MockDrivers([
+        make_driver(driver_idx=0, track_loc=TrkLoc.aproaching_pits, laps_completed=0,
+                    on_pit_road=False, session_flags=MEATBALL_AND_SERVICIBLE),
+    ])
+    detector = MeatballDetector(drivers)
+    result = detector.detect()
+
+    assert len(result.drivers) == 0
+
+
+def test_detects_meatball_on_track():
+    """Cars on track (not on pit road or approaching pits) with meatball flag should be detected."""
+    drivers = MockDrivers([
+        make_driver(driver_idx=0, track_loc=TrkLoc.on_track, laps_completed=0,
+                    on_pit_road=False, session_flags=MEATBALL_AND_SERVICIBLE),
     ])
     detector = MeatballDetector(drivers)
     result = detector.detect()

@@ -41,6 +41,13 @@ class MeatballDetector:
                 )
                 continue
 
+            if driver["on_pit_road"] or driver["track_loc"] == TrkLoc.aproaching_pits:
+                logger.debug(
+                    f"Skipping car #{driver['car_number']} (idx {driver['driver_idx']}): "
+                    f"on pit road or approaching pits, position no longer relevant to incident"
+                )
+                continue
+
             if driver["session_flags"] & irsdk.Flags.repair:
                 meatball_drivers.append(driver)
                 logger.debug(
