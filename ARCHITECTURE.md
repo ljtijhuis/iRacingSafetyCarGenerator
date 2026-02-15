@@ -109,7 +109,7 @@ Detector (Composite)
    - RandomDetector: Check probability window
    - StoppedDetector: Compare current vs previous total_distance
    - OffTrackDetector: Check track_loc status
-   - MeatballDetector: Check session_flags for repair flag
+   - MeatballDetector: Detect transition to repair flag (previous→current)
                          ↓
 3. BundledDetectedEvents → Bundle all results
                          ↓
@@ -534,7 +534,7 @@ while not shutdown_event.is_set() and total_sc_events < max_events:
     │       │       ├─ RandomDetector: Check probability
     │       │       ├─ StoppedDetector: Compare total_distance
     │       │       ├─ OffTrackDetector: Check track_loc
-    │       │       └─ MeatballDetector: Check session_flags
+    │       │       └─ MeatballDetector: Detect repair flag transition
     │       │
     │       └─ Bundle all results → BundledDetectedEvents
     │
