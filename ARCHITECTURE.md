@@ -27,6 +27,7 @@
 │  │  │  previous) │  │ - Stopped    │  │ - Proximity     │  │   │
 │  │  │            │  │ - OffTrack   │  │ - Thresholds    │  │   │
 │  │  │            │  │ - Meatball   │  │                 │  │   │
+│  │  │            │  │ - Tow        │  │                 │  │   │
 │  │  └────────────┘  └──────────────┘  └─────────────────┘  │   │
 │  │                                              │            │   │
 │  │                                              ▼            │   │
@@ -88,8 +89,11 @@ Detector (Composite)
     ├─► OffTrackDetector
     │   └─ Checks TrkLoc.off_track status
     │
-    └─► MeatballDetector
-        └─ Checks CarIdxSessionFlags for irsdk.Flags.repair
+    ├─► MeatballDetector
+    │   └─ Checks CarIdxSessionFlags for irsdk.Flags.repair
+    │
+    └─► TowDetector
+        └─ Detects instant track_loc transition to in_pit_stall (skipping aproaching_pits)
             ↓
         All results bundled into BundledDetectedEvents
             ↓
@@ -110,6 +114,7 @@ Detector (Composite)
    - StoppedDetector: Compare current vs previous total_distance
    - OffTrackDetector: Check track_loc status
    - MeatballDetector: Check session_flags for repair flag
+   - TowDetector: Detect instant transition to in_pit_stall
                          ↓
 3. BundledDetectedEvents → Bundle all results
                          ↓
@@ -534,7 +539,8 @@ while not shutdown_event.is_set() and total_sc_events < max_events:
     │       │       ├─ RandomDetector: Check probability
     │       │       ├─ StoppedDetector: Compare total_distance
     │       │       ├─ OffTrackDetector: Check track_loc
-    │       │       └─ MeatballDetector: Check session_flags
+    │       │       ├─ MeatballDetector: Check session_flags
+    │       │       └─ TowDetector: Detect tow to pits
     │       │
     │       └─ Bundle all results → BundledDetectedEvents
     │
@@ -690,6 +696,7 @@ src/core/
     ├── off_track_detector.py
     ├── random_detector.py
     ├── meatball_detector.py
+    ├── tow_detector.py
     └── tests/
         ├── __init__.py
         ├── test_detector.py
@@ -698,6 +705,7 @@ src/core/
         ├── test_off_track_detector.py
         ├── test_random_detector.py
         ├── test_meatball_detector.py
+        ├── test_tow_detector.py
         └── test_end_to_end_integration.py
 ```
 
