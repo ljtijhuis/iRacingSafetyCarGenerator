@@ -29,15 +29,17 @@ class ThresholdCheckerSettings:
     accumulative_threshold: float = 10.0
     accumulative_weights: dict = field(
         default_factory=lambda: {
-            DetectorEventTypes.OFF_TRACK: 1.0, 
+            DetectorEventTypes.OFF_TRACK: 1.0,
+            DetectorEventTypes.MEATBALL: 0.0,
             DetectorEventTypes.RANDOM: 0.0, # Random events do not contribute to the accumulative threshold
             DetectorEventTypes.STOPPED: 2.0,
         }
-    ) 
+    )
     event_type_threshold: dict = field(
         default_factory=lambda: {
             DetectorEventTypes.OFF_TRACK: 4.0,
-            DetectorEventTypes.RANDOM: 1.0, 
+            DetectorEventTypes.MEATBALL: 99999,
+            DetectorEventTypes.RANDOM: 1.0,
             DetectorEventTypes.STOPPED: 2.0,
         }
     )
@@ -50,7 +52,10 @@ class ThresholdCheckerSettings:
     def __post_init__(self):
         # Ensure RANDOM event type is always present with correct defaults
         self.accumulative_weights[DetectorEventTypes.RANDOM] = 0.0
-        self.event_type_threshold[DetectorEventTypes.RANDOM] = 1.0 
+        self.event_type_threshold[DetectorEventTypes.RANDOM] = 1.0
+        # Ensure MEATBALL event type is always present with correct defaults
+        self.accumulative_weights.setdefault(DetectorEventTypes.MEATBALL, 0.0)
+        self.event_type_threshold.setdefault(DetectorEventTypes.MEATBALL, 99999)
 
     @staticmethod
     def from_settings(settings):
@@ -59,11 +64,13 @@ class ThresholdCheckerSettings:
             accumulative_threshold=settings.accumulative_threshold,
             accumulative_weights={
                 DetectorEventTypes.OFF_TRACK: settings.off_track_weight,
+                DetectorEventTypes.MEATBALL: settings.meatball_weight,
                 DetectorEventTypes.RANDOM: 0.0, # Random events do not contribute to the accumulative threshold
                 DetectorEventTypes.STOPPED: settings.stopped_weight,
             },
             event_type_threshold={
                 DetectorEventTypes.OFF_TRACK: settings.off_track_cars_threshold,
+                DetectorEventTypes.MEATBALL: settings.meatball_cars_threshold,
                 DetectorEventTypes.RANDOM: 1.0, # Random does not have a threshold, it is just a flag
                 DetectorEventTypes.STOPPED: settings.stopped_cars_threshold,
             },
@@ -84,16 +91,17 @@ class ThresholdChecker:
     * register any new events occurred in the current generator loop
     * check if the accumulative or specific event type thresholds are met
 
-    Because we do not want to count the same event multiple times, we will only count the most
-    recent event for each driver. We therefore keep a dict per event type with the driver ID as key
-    and the number of times the event was registered as value. We use the number of unique keys per
-    event type to calculate if a threshold has been met.
+    For threshold checking, we use a "cluster first, dedupe after" approach:
+    * All events in the queue are used for proximity clustering at their original positions
+    * After clustering, each cluster is deduped to keep only the latest event per (driver, event_type)
+    * This ensures events are clustered at the position where they originally occurred, even if the
+      driver has since moved (e.g., towed to pit road)
 
     A queue is used to track the events in a FIFO manner, allowing us to efficiently update the
     dicts when events drop off outside of the time range. When the count for a driver reaches 0, we
     know we need to remove them from the dict.
-    
-    Events now store full Driver objects to enable proximity checks and position-based analysis.
+
+    Events store full Driver objects to enable proximity checks and position-based analysis.
 
     Args:
         settings (ThresholdCheckerSettings): Settings for the ThresholdChecker.
@@ -213,104 +221,117 @@ class ThresholdChecker:
 
     def _get_proximity_clusters(self) -> list:
         """Get proximity clusters of events.
-        
+
+        Uses "cluster first, dedupe after" approach: all events from the queue are clustered
+        at their original positions, then each cluster is deduped to keep only the latest
+        event per (driver_idx, event_type).
+
         Returns:
             List of clusters. If proximity is disabled, returns single cluster with all events.
             Each cluster contains (driver_idx, event_type, driver_obj) tuples.
         """
-        # Get latest event per driver per event type
-        latest_events = self._get_latest_events_per_driver()
-        logger.debug(f"_get_proximity_clusters: Latest events per driver: {latest_events}")
-        
-        if not latest_events:
+        if not self._events_queue:
             return []
-            
-        if not self._settings.proximity_yellows_enabled:
-            # Return single cluster with all events
-            cluster = [(driver_idx, event_type, driver_obj) 
-                      for (driver_idx, event_type), (timestamp, driver_obj) in latest_events.items()]
-            return [cluster] if cluster else []
-            
-        # Create proximity-based clusters
-        return self._create_proximity_clusters(latest_events)
-        
-    def _get_latest_events_per_driver(self) -> dict:
-        """Get the latest event per driver per event type from the events queue.
-        
-        Returns:
-            Dict with structure: {(driver_idx, event_type): (timestamp, driver_obj)}
-        """
-        latest_events = {}
-        
-        # Process events in FIFO order to get latest per driver per event type
+
+        # Build all events as (timestamp, driver_idx, event_type, driver_obj) tuples
+        all_events = []
         for event_time, event_type, driver_obj in self._events_queue:
             driver_idx = driver_obj['driver_idx']
-            key = (driver_idx, event_type)
-            # Since queue is FIFO, later entries will overwrite earlier ones
-            latest_events[key] = (event_time, driver_obj)
-            
-        return latest_events
-        
-    def _create_proximity_clusters(self, latest_events: dict) -> list:
-        """Create proximity clusters from latest driver events.
-        
+            all_events.append((event_time, driver_idx, event_type, driver_obj))
+
+        logger.debug(f"_get_proximity_clusters: {len(all_events)} total events from queue")
+
+        if not self._settings.proximity_yellows_enabled:
+            # Return single cluster with all events, deduped
+            cluster = self._dedupe_cluster(all_events)
+            return [cluster] if cluster else []
+
+        # Create proximity-based clusters (handles deduping internally)
+        return self._create_proximity_clusters(all_events)
+
+    @staticmethod
+    def _dedupe_cluster(cluster_events: list) -> list:
+        """Deduplicate a cluster to keep only the latest event per (driver_idx, event_type).
+
         Args:
-            latest_events: Dict of latest events per driver per event type
-            
+            cluster_events: List of (timestamp, driver_idx, event_type, driver_obj) tuples
+
+        Returns:
+            List of (driver_idx, event_type, driver_obj) tuples with only the latest per key
+        """
+        latest = {}
+        for timestamp, driver_idx, event_type, driver_obj in cluster_events:
+            key = (driver_idx, event_type)
+            if key not in latest or timestamp > latest[key][0]:
+                latest[key] = (timestamp, driver_obj)
+
+        return [(driver_idx, event_type, driver_obj)
+                for (driver_idx, event_type), (_, driver_obj) in latest.items()]
+
+    def _create_proximity_clusters(self, all_events: list) -> list:
+        """Create proximity clusters from all queue events, then dedupe within each cluster.
+
+        Args:
+            all_events: List of (timestamp, driver_idx, event_type, driver_obj) tuples
+
         Returns:
             List of clusters, where each cluster is a list of (driver_idx, event_type, driver_obj)
         """
-        if not latest_events:
+        if not all_events:
             return []
-            
+
         # Extract positions with event info
         events_with_positions = []
-        for (driver_idx, event_type), (timestamp, driver_obj) in latest_events.items():
+        for timestamp, driver_idx, event_type, driver_obj in all_events:
             lap_distance = driver_obj['lap_distance']
             # Normalize if > 1.0 (in case laps are included)
             if lap_distance > 1.0:
                 lap_distance = lap_distance % 1
-            events_with_positions.append((lap_distance, driver_idx, event_type, driver_obj))
-            
+            events_with_positions.append((lap_distance, timestamp, driver_idx, event_type, driver_obj))
+
         # Sort by lap distance
         events_with_positions.sort(key=lambda x: x[0])
         logger.debug(f"Sorted events with positions: {events_with_positions}")
-        
+
         # Account for cars near finish line by extending with +1 distances
-        extended_events = events_with_positions + [(pos + 1, driver_idx, event_type, driver_obj) 
-                                                  for pos, driver_idx, event_type, driver_obj in events_with_positions
-                                                  if pos < self._settings.proximity_yellows_distance]
+        extended_events = events_with_positions + [
+            (pos + 1, ts, d_idx, e_type, d_obj)
+            for pos, ts, d_idx, e_type, d_obj in events_with_positions
+            if pos < self._settings.proximity_yellows_distance
+        ]
         logger.debug(f"Extended events for proximity clustering: {extended_events}")
-        
+
         # Find all possible proximity clusters using sliding window
-        clusters = []
+        raw_clusters = []
         current_window = deque()
-        for position, driver_idx, event_type, driver_obj in extended_events:
+        for position, timestamp, driver_idx, event_type, driver_obj in extended_events:
             cluster_added = False
             # Remove events outside proximity range from the left
-            while (current_window and 
+            while (current_window and
                    position - current_window[0][0] > self._settings.proximity_yellows_distance):
-                
+
                 if not cluster_added:
                     # we are about to remove the leftmost event, so save current window as a cluster
-                    cluster = [(d_idx, e_type, d_obj) for _, d_idx, e_type, d_obj in current_window]
-                    clusters.append(cluster)
-                    logger.debug(f"Formed proximity cluster: {cluster}")
+                    raw_cluster = [(ts, d_idx, e_type, d_obj) for _, ts, d_idx, e_type, d_obj in current_window]
+                    raw_clusters.append(raw_cluster)
+                    logger.debug(f"Formed raw proximity cluster with {len(raw_cluster)} events")
                     cluster_added = True
-            
+
                 current_window.popleft()
-                
+
             # Add current event to window
-            current_window.append((position, driver_idx, event_type, driver_obj))
+            current_window.append((position, timestamp, driver_idx, event_type, driver_obj))
 
         # Add the last window as a cluster if not empty
         if current_window:
-            cluster = [(d_idx, e_type, d_obj) for _, d_idx, e_type, d_obj in current_window]
-            clusters.append(cluster)
-            logger.debug(f"Formed proximity cluster: {cluster}")
-            
-                    
-        logger.debug(f"Created {len(clusters)} proximity clusters from {len(latest_events)} events")
+            raw_cluster = [(ts, d_idx, e_type, d_obj) for _, ts, d_idx, e_type, d_obj in current_window]
+            raw_clusters.append(raw_cluster)
+            logger.debug(f"Formed raw proximity cluster with {len(raw_cluster)} events")
+
+        # Dedupe within each cluster
+        clusters = [self._dedupe_cluster(raw_cluster) for raw_cluster in raw_clusters]
+
+        logger.debug(f"Created {len(clusters)} proximity clusters from {len(all_events)} events")
         return clusters
         
     def _cluster_meets_threshold(self, cluster: list, dynamic_multiplier: float) -> bool:

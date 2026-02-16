@@ -144,20 +144,17 @@ def test_cleanup(threshold_checker, mocker):
     
 def test_threshold_checker_settings_from_settings():
     # Mock settings object with the typed wrapper interface
-    class MockSettings:
-        def __init__(self):
-            self.event_time_window_seconds = 5.0
-            self.off_track_cars_threshold = 5
-            self.stopped_cars_threshold = 3
-            self.accumulative_threshold = 10
-            self.off_track_weight = 1.0
-            self.stopped_weight = 2.0
-            self.proximity_filter_enabled = False
-            self.proximity_filter_distance_percentage = 0.05
-            self.race_start_threshold_multiplier = 1.0
-            self.race_start_threshold_multiplier_time_seconds = 300.0
+    settings = dict_to_config({
+        "settings": {
+            "event_time_window_seconds": "5.0",
+            "off_track_cars_threshold": "5",
+            "stopped_cars_threshold": "3",
+            "accumulative_threshold": "10",
+            "off_track_weight": "1.0",
+            "stopped_weight": "2.0",
+        }
+    })
 
-    settings = MockSettings()
     threshold_checker_settings = ThresholdCheckerSettings.from_settings(settings)
     assert threshold_checker_settings.time_range == 5.0
     assert threshold_checker_settings.event_type_threshold[OFF_TRACK] == 5
@@ -263,28 +260,99 @@ def test_get_proximity_clusters_across_finish_line(mocker):
     cluster_sizes = sorted([len(cluster) for cluster in clusters])
     assert cluster_sizes == [2, 3]
 
-def test_get_latest_events_per_driver(proximity_threshold_checker, mocker):
-    """Test _get_latest_events_per_driver method"""
-    mocker.patch("time.time", return_value=1000.0)
-    driver1 = make_driver(track_loc=0, driver_idx=1, lap_distance=0.1)
+def test_dedupe_cluster():
+    """Test _dedupe_cluster keeps only the latest event per (driver_idx, event_type)"""
+    driver1_early = make_driver(track_loc=0, driver_idx=1, lap_distance=0.1)
+    driver1_late = make_driver(track_loc=0, driver_idx=1, lap_distance=0.15)
     driver2 = make_driver(track_loc=0, driver_idx=2, lap_distance=0.2)
-    
-    # Register multiple events for same driver - should only keep latest
-    proximity_threshold_checker._register_event(OFF_TRACK, driver1, 1000.1)
-    proximity_threshold_checker._register_event(OFF_TRACK, driver1, 1000.2)  # This should be latest
-    proximity_threshold_checker._register_event(STOPPED, driver1, 1000.3)    # Different event type
-    proximity_threshold_checker._register_event(OFF_TRACK, driver2, 1000.4)
-    
-    latest_events = proximity_threshold_checker._get_latest_events_per_driver()
-    
+
+    cluster_events = [
+        (1000.1, 1, OFF_TRACK, driver1_early),
+        (1000.2, 1, OFF_TRACK, driver1_late),   # Later timestamp, should win
+        (1000.3, 1, STOPPED, driver1_early),     # Different event type
+        (1000.4, 2, OFF_TRACK, driver2),
+    ]
+
+    result = ThresholdChecker._dedupe_cluster(cluster_events)
+
     # Should have 3 entries: driver1 OFF_TRACK (latest), driver1 STOPPED, driver2 OFF_TRACK
-    assert len(latest_events) == 3
-    assert (1, OFF_TRACK) in latest_events
-    assert (1, STOPPED) in latest_events
-    assert (2, OFF_TRACK) in latest_events
-    
-    # Check that we got the latest OFF_TRACK event for driver1
-    assert latest_events[(1, OFF_TRACK)][0] == 1000.2
+    assert len(result) == 3
+    result_keys = {(d_idx, e_type) for d_idx, e_type, _ in result}
+    assert result_keys == {(1, OFF_TRACK), (1, STOPPED), (2, OFF_TRACK)}
+
+    # Check that we got the latest OFF_TRACK driver_obj for driver1
+    for d_idx, e_type, d_obj in result:
+        if d_idx == 1 and e_type == OFF_TRACK:
+            assert d_obj is driver1_late
+
+
+def test_driver_in_multiple_proximity_clusters(mocker):
+    """Test that a driver detected at crash site AND pit appears in both clusters"""
+    proximity_checker = ThresholdChecker(ThresholdCheckerSettings(
+        time_range=10.0,
+        accumulative_threshold=1000,
+        accumulative_weights={OFF_TRACK: 1.0, RANDOM: 1.0, STOPPED: 1.0},
+        event_type_threshold={OFF_TRACK: 2, RANDOM: 1, STOPPED: 3},
+        proximity_yellows_enabled=True,
+        proximity_yellows_distance=0.05,
+    ))
+    mocker.patch("time.time", return_value=1000.0)
+
+    # Driver 1 detected at crash site (0.5), then later at pit (0.1)
+    driver1_at_crash = make_driver(track_loc=0, driver_idx=1, lap_distance=0.5)
+    driver1_at_pit = make_driver(track_loc=0, driver_idx=1, lap_distance=0.1)
+    # Driver 2 at crash site
+    driver2_at_crash = make_driver(track_loc=0, driver_idx=2, lap_distance=0.51)
+    # Driver 3 near pit
+    driver3_at_pit = make_driver(track_loc=0, driver_idx=3, lap_distance=0.11)
+
+    proximity_checker._register_event(OFF_TRACK, driver1_at_crash, 1000.0)
+    proximity_checker._register_event(OFF_TRACK, driver1_at_pit, 1000.5)  # Later, at pit
+    proximity_checker._register_event(OFF_TRACK, driver2_at_crash, 1000.1)
+    proximity_checker._register_event(OFF_TRACK, driver3_at_pit, 1000.2)
+
+    clusters = proximity_checker._get_proximity_clusters()
+
+    # Should have 2 clusters: one near pit (0.1-0.11) and one near crash (0.5-0.51)
+    assert len(clusters) == 2
+
+    # Driver 1 should appear in both clusters (at different positions)
+    for cluster in clusters:
+        driver_idxs = {d_idx for d_idx, _, _ in cluster}
+        assert 1 in driver_idxs, "Driver 1 should be in both clusters"
+
+
+def test_same_driver_deduped_within_cluster(mocker):
+    """Test that multiple detections of same driver+type at similar positions collapse to one"""
+    proximity_checker = ThresholdChecker(ThresholdCheckerSettings(
+        time_range=10.0,
+        accumulative_threshold=1000,
+        accumulative_weights={OFF_TRACK: 1.0, RANDOM: 1.0, STOPPED: 1.0},
+        event_type_threshold={OFF_TRACK: 2, RANDOM: 1, STOPPED: 3},
+        proximity_yellows_enabled=True,
+        proximity_yellows_distance=0.05,
+    ))
+    mocker.patch("time.time", return_value=1000.0)
+
+    # Same driver detected multiple times at similar positions
+    driver1_t1 = make_driver(track_loc=0, driver_idx=1, lap_distance=0.10)
+    driver1_t2 = make_driver(track_loc=0, driver_idx=1, lap_distance=0.11)
+    driver1_t3 = make_driver(track_loc=0, driver_idx=1, lap_distance=0.12)
+
+    proximity_checker._register_event(OFF_TRACK, driver1_t1, 1000.0)
+    proximity_checker._register_event(OFF_TRACK, driver1_t2, 1000.1)
+    proximity_checker._register_event(OFF_TRACK, driver1_t3, 1000.2)
+
+    clusters = proximity_checker._get_proximity_clusters()
+
+    assert len(clusters) == 1, "We are only expecting one cluster"
+
+    # All events are in same proximity range, should produce cluster(s) where
+    # driver 1 OFF_TRACK appears only once per cluster after deduping
+    for cluster in clusters:
+        driver1_offtrack_count = sum(1 for d_idx, e_type, _ in cluster
+                                     if d_idx == 1 and e_type == OFF_TRACK)
+        assert driver1_offtrack_count == 1, "Same driver+type should be deduped within a cluster"
 
 def test_cluster_meets_threshold_individual(proximity_threshold_checker):
     """Test _cluster_meets_threshold for individual event type thresholds"""

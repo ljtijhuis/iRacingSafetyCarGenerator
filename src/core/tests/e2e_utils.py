@@ -46,6 +46,7 @@ class DetectionLogEntry:
     timestamp: float
     stopped_drivers: list[int] = field(default_factory=list)
     off_track_drivers: list[int] = field(default_factory=list)
+    meatball_drivers: list[int] = field(default_factory=list)
     random_triggered: bool = False
     threshold_met: bool = False
 
@@ -119,6 +120,7 @@ class ReplayDrivers:
         lap_distance = telemetry["CarIdxLapDistPct"]
         track_loc = telemetry["CarIdxTrackSurface"]
         on_pit_road = telemetry["CarIdxOnPitRoad"]
+        session_flags = telemetry["CarIdxSessionFlags"]
 
         self.session_info = {
             "pace_car_idx": frame["session_info"]["DriverInfo"]["PaceCarIdx"],
@@ -138,6 +140,7 @@ class ReplayDrivers:
                 "total_distance": laps_completed[car_idx] + lap_distance[car_idx],
                 "track_loc": track_loc[car_idx],
                 "on_pit_road": on_pit_road[car_idx],
+                "session_flags": session_flags[car_idx],
             })
 
 
@@ -335,6 +338,8 @@ class DumpReplayer:
                                 log_entry.stopped_drivers = driver_idxs
                             elif event_type == DetectorEventTypes.OFF_TRACK:
                                 log_entry.off_track_drivers = driver_idxs
+                            elif event_type == DetectorEventTypes.MEATBALL:
+                                log_entry.meatball_drivers = driver_idxs
                         elif detection_result.has_detected_flag() and detection_result.detected_flag:
                             log_entry.random_triggered = True
 

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from core.detection.detector_common_types import DetectionResult, DetectorEventTypes, DetectorState, SupportsDetect
+from core.detection.meatball_detector import MeatballDetector
 from core.detection.off_track_detector import OffTrackDetector
 from core.detection.random_detector import RandomDetector
 from core.detection.stopped_detector import StoppedDetector
@@ -42,7 +43,10 @@ class DetectorSettings:
     
     # OffTrackDetector settings
     off_track_detector_enabled: bool = True
-    
+
+    # MeatballDetector settings
+    meatball_detector_enabled: bool = True
+
     @staticmethod
     def from_settings(settings):
         return DetectorSettings(
@@ -53,6 +57,7 @@ class DetectorSettings:
             random_max_safety_cars=settings.random_max_safety_cars,
             stopped_detector_enabled=settings.stopped_detector_enabled,
             off_track_detector_enabled=settings.off_track_detector_enabled,
+            meatball_detector_enabled=settings.meatball_detector_enabled,
         )
 
     
@@ -91,7 +96,10 @@ class Detector:
 
         if settings.off_track_detector_enabled:
             detectors[DetectorEventTypes.OFF_TRACK] = OffTrackDetector(drivers)
-        
+
+        if settings.meatball_detector_enabled:
+            detectors[DetectorEventTypes.MEATBALL] = MeatballDetector(drivers)
+
         return Detector(detectors)
     
 

@@ -9,6 +9,7 @@ from core.drivers import Driver
 class DetectorEventTypes(Enum):
     """The different events we are tracking."""
     OFF_TRACK = "off_track"
+    MEATBALL = "meatball"
     RANDOM = "random"
     STOPPED = "stopped"
 

@@ -582,3 +582,114 @@ class TestRegressionWeirdScWithLotsOfWaves:
             f"Expected no wave commands with laps_before=1 (target lap not reached in dump), "
             f"got {sc.wave_commands}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Test: Meatball / repairs required detection
+# ---------------------------------------------------------------------------
+
+class TestMeatballDetection:
+    """Tests for the meatball (repairs required) detector using a dump where
+    cars at indices 0, 7, 13 receive meatball flags starting around frame 36.
+
+    The dump 'local_session_race_start_meatbal_and_tow.ndjson' contains:
+    - Race starts at frame 15 (SessionState=4, green flag)
+    - Frame 36: cars at indices 0, 7 get meatball flag (0x00140000)
+    - Frame 37+: cars at indices 0, 7, 13 have meatball flag
+
+    Car lifecycle in this dump:
+    - idx 0: Gets meatball while OnTrack (frame 36, laps_completed=0). Later
+      towed to InPitStall (frame 42, on_pit_road=True). Detected correctly.
+    - idx 7: Crashes at ~frame 27, towed to NotInWorld at frame 31
+      (laps_completed=-1, all values reset to -1). Receives meatball at
+      frame 36 while *already* NotInWorld. Correctly excluded by the
+      laps_completed < 0 and track_loc == NotInWorld filters.
+    - idx 13: Gets meatball while OnTrack (frame 37, laps_completed=0).
+      Continues driving. Detected correctly.
+    """
+
+    dump = DUMPS_DIR / "local_session_race_start_meatbal_and_tow.ndjson"
+
+    def test_meatball_detected_in_log_default_settings(self):
+        """With default settings (threshold=99999, weight=0.0), meatball events
+        should appear in the detection log but no SC should trigger."""
+        replayer = DumpReplayer(self.dump, settings=make_settings(
+            meatball_detector_enabled=True,
+            stopped_detector_enabled=False,
+            off_track_detector_enabled=False,
+            random_detector_enabled=False,
+            proximity_filter_enabled=False,
+            race_start_threshold_multiplier=1.0,
+            event_time_window_seconds=5.0,
+            detection_start_minute=0.0,
+            detection_end_minute=60.0,
+            max_safety_cars=10,
+        ))
+        result = replayer.run()
+
+        # Meatball should be detected in the log
+        frames_with_meatball = [
+            entry for entry in result.detection_log
+            if entry.meatball_drivers
+        ]
+        assert len(frames_with_meatball) > 0, "Expected meatball detections in log"
+
+        # Check the known car indices appear
+        all_meatball_idxs = set()
+        for entry in frames_with_meatball:
+            all_meatball_idxs.update(entry.meatball_drivers)
+        # Index 7 has laps_completed=-1, so is filtered out by the detector
+        assert {0, 13}.issubset(all_meatball_idxs), (
+            f"Expected indices 0, 13 in meatball detections, got {all_meatball_idxs}"
+        )
+
+        # No SC should trigger with default threshold=99999
+        assert result.total_safety_cars() == 0, (
+            f"Expected 0 SCs with meatball threshold=99999, got {result.total_safety_cars()}"
+        )
+
+    def test_sc_triggers_with_low_meatball_threshold(self):
+        """With meatball_cars_threshold=1, a single meatball car should trigger SC."""
+        replayer = DumpReplayer(self.dump, settings=make_settings(
+            meatball_detector_enabled=True,
+            meatball_cars_threshold=1,
+            stopped_detector_enabled=False,
+            off_track_detector_enabled=False,
+            random_detector_enabled=False,
+            proximity_filter_enabled=False,
+            race_start_threshold_multiplier=1.0,
+            event_time_window_seconds=5.0,
+            detection_start_minute=0.0,
+            detection_end_minute=60.0,
+            max_safety_cars=10,
+        ))
+        result = replayer.run()
+
+        assert result.total_safety_cars() >= 1, (
+            f"Expected at least 1 SC with meatball_threshold=1, got {result.total_safety_cars()}"
+        )
+
+    def test_meatball_contributes_to_accumulative_scoring(self):
+        """With meaningful meatball weight and lowered accumulative threshold,
+        meatball detections should contribute to accumulative scoring and trigger SC."""
+        replayer = DumpReplayer(self.dump, settings=make_settings(
+            meatball_detector_enabled=True,
+            meatball_weight=2.0,
+            accumulative_detector_enabled=True,
+            accumulative_threshold=3.0,  # 2 cars * weight 2.0 = 4.0 >= 3.0
+            stopped_detector_enabled=False,
+            off_track_detector_enabled=False,
+            random_detector_enabled=False,
+            proximity_filter_enabled=False,
+            race_start_threshold_multiplier=1.0,
+            event_time_window_seconds=5.0,
+            detection_start_minute=0.0,
+            detection_end_minute=60.0,
+            max_safety_cars=10,
+        ))
+        result = replayer.run()
+
+        assert result.total_safety_cars() >= 1, (
+            f"Expected at least 1 SC via accumulative meatball scoring, "
+            f"got {result.total_safety_cars()}"
+        )
