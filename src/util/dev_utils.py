@@ -78,15 +78,15 @@ def send_test_commands():
             ir.shutdown()
 
 def parse_log_events_to_csv(log_file_path):
-    """Parse a single log file to extract off track and stopped car events and generate CSV.
-    
-    This function searches through a log file to find events related to off track 
-    incidents and stopped cars, then generates a CSV file with timestamps and event 
-    counts for graphing in Google Docs.
-    
+    """Parse a single log file to extract detection events and generate CSV.
+
+    This function searches through a log file to find events related to off track
+    incidents, stopped cars, meatball flags, and towing, then generates a CSV file
+    with timestamps and event counts for graphing in Google Docs.
+
     Args:
         log_file_path (str): Path to the log file to parse
-        
+
     Returns:
         str: Path to the generated CSV file
     """
@@ -97,12 +97,35 @@ def parse_log_events_to_csv(log_file_path):
     csv_file_path = log_file_path.rsplit('.', 1)[0] + '.csv'
     
     # Dictionary to store events by timestamp
-    events_by_time = defaultdict(lambda: {"off_track": 0, "stopped": 0})
+    # Each entry contains counts and car number sets for each event type
+    events_by_time = defaultdict(lambda: {
+        "off_track": 0, "stopped": 0, "meatball": 0, "towing": 0,
+        "off_track_cars": set(), "stopped_cars": set(), "meatball_cars": set(), "towing_cars": set()
+    })
+
+    # Track race start time for time_since_start calculation
+    race_start_time = None
 
     # Pattern to match threshold checking log entries with events_dict
-    # Updated to match DetectorEventTypes and include RANDOM event type
-    threshold_pattern = re.compile(r'Checking threshold, events_dict=\{<DetectorEventTypes\.OFF_TRACK.*?>\: (\{[^}]*\}), <DetectorEventTypes\.RANDOM.*?>\: (\{[^}]*\}), <DetectorEventTypes\.STOPPED.*?>\: (\{[^}]*\})\}')
-    
+    # Captures all 5 event types: OFF_TRACK, MEATBALL, RANDOM, STOPPED, TOWING
+    threshold_pattern = re.compile(
+        r'Checking threshold, events_dict=\{'
+        r'<DetectorEventTypes\.OFF_TRACK.*?>\: (\{[^}]*\}), '
+        r'<DetectorEventTypes\.MEATBALL.*?>\: (\{[^}]*\}), '
+        r'<DetectorEventTypes\.RANDOM.*?>\: (\{[^}]*\}), '
+        r'<DetectorEventTypes\.STOPPED.*?>\: (\{[^}]*\}), '
+        r'<DetectorEventTypes\.TOWING.*?>\: (\{[^}]*\})\}'
+    )
+
+    # Pattern to match race start log entries
+    race_start_pattern = re.compile(r'Race started at')
+
+    # Pattern to extract car numbers from "Sorted events with positions" log lines
+    # Matches event type and car_number pairs
+    car_number_pattern = re.compile(
+        r"<DetectorEventTypes\.(OFF_TRACK|MEATBALL|STOPPED|TOWING): '[^']+'>.*?'car_number': '([^']+)'"
+    )
+
     print(f"Processing {log_file_path}...")
     
     try:
@@ -112,28 +135,47 @@ def parse_log_events_to_csv(log_file_path):
                 timestamp_match = re.match(r'^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})', line)
                 if not timestamp_match:
                     continue
-                
+
                 timestamp_str = timestamp_match.group(1)
-                
+
+                # Check for race start to capture the first start time
+                if race_start_time is None and race_start_pattern.search(line):
+                    race_start_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
+                    print(f"Race started at: {race_start_time}")
+
                 # Check for threshold checking logs with events_dict
                 threshold_match = threshold_pattern.search(line)
                 if threshold_match:
                     off_track_dict_str = threshold_match.group(1)
-                    # random_dict_str = threshold_match.group(2)  # Ignored for CSV output
-                    stopped_dict_str = threshold_match.group(3)
+                    meatball_dict_str = threshold_match.group(2)
+                    # random_dict_str = threshold_match.group(3)  # Ignored for CSV output
+                    stopped_dict_str = threshold_match.group(4)
+                    towing_dict_str = threshold_match.group(5)
 
-                    # Count unique drivers for off track (number of keys in dict)
+                    # Count unique drivers for each event type (number of keys in dict)
                     # Empty dict is "{}", non-empty will have driver IDs as keys
                     off_track_count = 0 if off_track_dict_str == '{}' else len([x for x in off_track_dict_str.split(',') if ':' in x])
-
-                    # Count unique drivers for stopped cars
+                    meatball_count = 0 if meatball_dict_str == '{}' else len([x for x in meatball_dict_str.split(',') if ':' in x])
                     stopped_count = 0 if stopped_dict_str == '{}' else len([x for x in stopped_dict_str.split(',') if ':' in x])
+                    towing_count = 0 if towing_dict_str == '{}' else len([x for x in towing_dict_str.split(',') if ':' in x])
 
-                    # Note: We ignore random events (group 2) for CSV output as they're not used for threshold calculations
+                    # Note: We ignore random events (group 3) for CSV output as they're not used for threshold calculations
 
                     # Record all threshold checking events, including when counts are 0
                     events_by_time[timestamp_str]["off_track"] = off_track_count
                     events_by_time[timestamp_str]["stopped"] = stopped_count
+                    events_by_time[timestamp_str]["meatball"] = meatball_count
+                    events_by_time[timestamp_str]["towing"] = towing_count
+
+                # Check for "Sorted events with positions" to extract car numbers
+                if 'Sorted events with positions' in line:
+                    # Extract all (event_type, car_number) pairs from the line
+                    for match in car_number_pattern.finditer(line):
+                        event_type = match.group(1).lower()  # OFF_TRACK -> off_track
+                        car_number = match.group(2)
+                        car_key = f"{event_type}_cars"
+                        if car_key in events_by_time[timestamp_str]:
+                            events_by_time[timestamp_str][car_key].add(car_number)
                     
     except Exception as e:
         raise Exception(f"Error reading log file: {e}")
@@ -142,7 +184,7 @@ def parse_log_events_to_csv(log_file_path):
         # Create an empty CSV with headers if no events found
         with open(csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(['Timestamp', 'Date', 'Time', 'Off Track Events', 'Stopped Car Events', 'Total Events'])
+            writer.writerow(['Timestamp', 'Date', 'Time', 'Time Since Start', 'Off Track Events', 'Off Track Cars', 'Stopped Car Events', 'Stopped Cars', 'Meatball Events', 'Meatball Cars', 'Towing Events', 'Towing Cars', 'Total Events'])
         print("No events found in log file, created empty CSV with headers")
         return csv_file_path
     
@@ -155,24 +197,50 @@ def parse_log_events_to_csv(log_file_path):
             writer = csv.writer(csvfile)
             
             # Write header
-            writer.writerow(['Timestamp', 'Date', 'Time', 'Off Track Events', 'Stopped Car Events', 'Total Events'])
-            
+            writer.writerow(['Timestamp', 'Date', 'Time', 'Time Since Start', 'Off Track Events', 'Off Track Cars', 'Stopped Car Events', 'Stopped Cars', 'Meatball Events', 'Meatball Cars', 'Towing Events', 'Towing Cars', 'Total Events'])
+
             # Write data rows
             for timestamp_str, events in sorted_events:
                 try:
                     dt = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
                     date_str = dt.strftime('%Y-%m-%d')
                     time_str = dt.strftime('%H:%M:%S')
+
+                    # Calculate time since race start
+                    if race_start_time is not None:
+                        delta = dt - race_start_time
+                        total_seconds = int(delta.total_seconds())
+                        hours, remainder = divmod(max(0, total_seconds), 3600)
+                        minutes, seconds = divmod(remainder, 60)
+                        time_since_start = f"{hours}:{minutes:02d}:{seconds:02d}"
+                    else:
+                        time_since_start = "N/A"
+
                     off_track_count = events["off_track"]
                     stopped_count = events["stopped"]
-                    total_count = off_track_count + stopped_count
-                    
+                    meatball_count = events["meatball"]
+                    towing_count = events["towing"]
+                    total_count = off_track_count + stopped_count + meatball_count + towing_count
+
+                    # Format car numbers as comma-separated strings (sorted for consistency)
+                    off_track_cars = ', '.join(sorted(events["off_track_cars"])) if events["off_track_cars"] else ''
+                    stopped_cars = ', '.join(sorted(events["stopped_cars"])) if events["stopped_cars"] else ''
+                    meatball_cars = ', '.join(sorted(events["meatball_cars"])) if events["meatball_cars"] else ''
+                    towing_cars = ', '.join(sorted(events["towing_cars"])) if events["towing_cars"] else ''
+
                     writer.writerow([
                         timestamp_str,
                         date_str,
                         time_str,
+                        time_since_start,
                         off_track_count,
+                        off_track_cars,
                         stopped_count,
+                        stopped_cars,
+                        meatball_count,
+                        meatball_cars,
+                        towing_count,
+                        towing_cars,
                         total_count
                     ])
                 except ValueError as e:
@@ -182,13 +250,17 @@ def parse_log_events_to_csv(log_file_path):
         # Print summary statistics
         total_off_track = sum(events["off_track"] for events in events_by_time.values())
         total_stopped = sum(events["stopped"] for events in events_by_time.values())
-        
+        total_meatball = sum(events["meatball"] for events in events_by_time.values())
+        total_towing = sum(events["towing"] for events in events_by_time.values())
+
         print(f"Successfully created {csv_file_path}")
         print(f"Found {len(sorted_events)} time points with events")
         print(f"Summary:")
         print(f"  Total Off Track Events: {total_off_track}")
         print(f"  Total Stopped Car Events: {total_stopped}")
-        print(f"  Total Events: {total_off_track + total_stopped}")
+        print(f"  Total Meatball Events: {total_meatball}")
+        print(f"  Total Towing Events: {total_towing}")
+        print(f"  Total Events: {total_off_track + total_stopped + total_meatball + total_towing}")
         
         return csv_file_path
         
