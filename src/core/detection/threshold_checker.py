@@ -108,7 +108,7 @@ class ThresholdChecker:
     """
 
     def __init__(self, settings: ThresholdCheckerSettings):
-        logger.info(f"Init ThresholdChecker with settings: {settings}")
+        logger.debug(f"Init ThresholdChecker with settings: {settings}")
         self._settings = settings if settings else ThresholdCheckerSettings()
         self._events_dict = {det: {} for det in DetectorEventTypes} # Initialize dicts for each event type
         self._events_queue = deque()  # Stores (timestamp, event_type, driver_object)
@@ -120,7 +120,7 @@ class ThresholdChecker:
         Args:
             start_time: The time when the race started (from time.time())
         """
-        logger.info(f"Race started at {start_time}")
+        logger.debug(f"Race started at {start_time}")
         self.race_start_time = start_time
     
     def clean_up_events(self):
@@ -137,7 +137,7 @@ class ThresholdChecker:
         ):
             event_time, event_type, driver_obj = self._events_queue.popleft()
             driver_id = driver_obj['driver_idx']
-            logger.info(f"Cleaning up event {event_type} for driver {driver_id} registered at {event_time}")
+            logger.debug(f"Cleaning up event {event_type} for driver {driver_id} registered at {event_time}")
             if driver_id in self._events_dict[event_type]:
                 count = self._events_dict[event_type][driver_id]
                 if count == 1:
@@ -158,7 +158,7 @@ class ThresholdChecker:
             event_time (float, optional): The time at which the event was observed. Defaults to current time.
         """
         driver_id = driver_obj['driver_idx']
-        logger.info(f"Registering event {event_type} for driver {driver_id} at {event_time}")
+        logger.debug(f"Registering event {event_type} for driver {driver_id} at {event_time}")
         count = self._events_dict[event_type].get(driver_id, 0)
         self._events_dict[event_type][driver_id] = count + 1
         self._events_queue.append((event_time, event_type, driver_obj))
@@ -336,30 +336,38 @@ class ThresholdChecker:
         
     def _cluster_meets_threshold(self, cluster: list, dynamic_multiplier: float) -> bool:
         """Check if a proximity cluster meets threshold requirements.
-        
+
         Args:
             cluster: List of (driver_idx, event_type, driver_obj) tuples
             dynamic_multiplier: Pre-calculated dynamic threshold multiplier
-            
+
         Returns:
             True if cluster meets either per-event-type or accumulative thresholds
         """
         logger.debug(f"Checking if cluster meets threshold {cluster}")
-        
-        # Count events per type in this cluster
+
+        # Collect car numbers per event type for logging
+        cars_by_event: dict[DetectorEventTypes, list[str]] = {det: [] for det in DetectorEventTypes}
         event_counts = {det: 0 for det in DetectorEventTypes}
         for driver_idx, event_type, driver_obj in cluster:
             event_counts[event_type] += 1
-            
+            car_num = driver_obj.get('car_number', f'idx:{driver_idx}')
+            if car_num not in cars_by_event[event_type]:
+                cars_by_event[event_type].append(car_num)
+
         # Check per-event-type thresholds
         for det in DetectorEventTypes:
             event_type_count = event_counts[det]
             threshold = self._settings.event_type_threshold[det] * dynamic_multiplier
-                
+
             if event_type_count >= threshold:
-                logger.info(f"Cluster threshold met for event type={det} with cluster_count={event_type_count} and threshold={threshold}")
+                car_list = ", ".join(f"#{c}" for c in cars_by_event[det])
+                logger.info(
+                    f"Threshold met: {det.value} — {event_type_count} events "
+                    f"(threshold {threshold:.0f}) — cars involved: {car_list}"
+                )
                 return True
-                
+
         # Check accumulative threshold
         # Each driver only contributes their highest-weighted event type
         # to avoid double-counting (e.g. a driver both stopped and off-track)
@@ -370,11 +378,21 @@ class ThresholdChecker:
                 driver_max_weights[driver_idx] = weight
         acc = sum(driver_max_weights.values())
         acc_threshold = self._settings.accumulative_threshold * dynamic_multiplier
-            
+
         if acc >= acc_threshold:
-            logger.info(f"Cluster accumulative threshold met with acc={acc} and threshold={acc_threshold}")
+            # Build a summary of all involved cars across event types
+            involved_parts = []
+            for det in DetectorEventTypes:
+                if cars_by_event[det]:
+                    car_list = ", ".join(f"#{c}" for c in cars_by_event[det])
+                    involved_parts.append(f"{det.value}: {car_list}")
+            summary = "; ".join(involved_parts)
+            logger.info(
+                f"Threshold met: combined/weighted — score {acc:.1f} "
+                f"(threshold {acc_threshold:.1f}) — {summary}"
+            )
             return True
-            
+
         return False
         
     def _calc_dynamic_threshold(self, base_threshold: float) -> float:

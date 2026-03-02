@@ -65,7 +65,8 @@ class StoppedDetector:
             stopped_cars = []
 
         if stopped_cars:
-            logger.info(f"Found {len(stopped_cars)} stopped drivers out of {total_drivers - skipped_count} active drivers")
+            car_nums = ", ".join(f"#{c['car_number']}" for c in stopped_cars)
+            logger.info(f"Detected {len(stopped_cars)} stopped car(s) on track: {car_nums}")
         else:
             logger.debug(f"No stopped drivers found ({total_drivers - skipped_count} active drivers checked, {skipped_count} skipped)")
 

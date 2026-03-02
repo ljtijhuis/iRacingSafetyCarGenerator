@@ -456,10 +456,12 @@ main.py
 └─► App.__init__()
     ├─ Load Settings from settings.ini
     ├─ Create Generator(arguments, self)
-    ├─ Build GUI widgets (3-column layout)
+    ├─ Build GUI widgets (3-column layout + events log)
     │   ├─ Column 1: Safety car types (Random, Stopped, Off Track)
     │   ├─ Column 2: Settings (thresholds, timing)
-    │   └─ Column 3: Controls (Start/Stop, manual SC)
+    │   ├─ Column 3: Controls (Start/Stop, manual SC)
+    │   └─ Row 4 (full width): Events Log panel (scrollable, INFO+ messages)
+    ├─ Attach EventsLogHandler to Events Log panel
     ├─ Fill widgets from settings
     └─ App.mainloop() → Start Tkinter event loop
 ```

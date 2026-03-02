@@ -40,7 +40,8 @@ class OffTrackDetector:
                logger.debug(f"Driver {driver['driver_idx']} is off track at position {driver['lap_distance']:.3f}")
         
         if off_track_drivers:
-            logger.info(f"Found {len(off_track_drivers)} off-track drivers out of {total_drivers} total drivers")
+            car_nums = ", ".join(f"#{d['car_number']}" for d in off_track_drivers)
+            logger.info(f"Detected {len(off_track_drivers)} car(s) off track: {car_nums}")
         else:
             logger.debug(f"No off-track drivers found ({total_drivers} drivers checked)")
         

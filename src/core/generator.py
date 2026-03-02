@@ -129,7 +129,8 @@ class Generator:
         """
         try:
             if self._throw_manual_safety_car():
-                self._start_safety_car()
+                logger.info("Manual safety car triggered by user")
+                self._start_safety_car("Manual safety car")
         finally:
             # we always want to clear the threading flag, so adding in finally clause
             self.throw_manual_sc_event.clear()
@@ -199,6 +200,7 @@ class Generator:
 
                     # If it has reached the end minute, break the loop
                     if time.time() - self.start_time > end_minute * 60:
+                        logger.info(f"Detection window ended (minute {end_minute}), stopping monitoring")
                         break
 
                     # If it hasn't been long enough since the last event, wait
@@ -223,7 +225,6 @@ class Generator:
                                 self.threshold_checker.register_detection_result(detection_result)
 
                         if self.threshold_checker.threshold_met():
-                            logger.info("Threshold met, starting safety car")
                             self._start_safety_car("Incident on track")
 
                     except Exception as e:
@@ -233,6 +234,8 @@ class Generator:
                     time.sleep(1)
 
             # Move to a stopped state
+            if self.total_sc_events >= max_events:
+                logger.info(f"Maximum safety cars reached ({max_events}), stopping")
             self.master.generator_state = GeneratorState.STOPPED
 
         except Exception as e:
@@ -294,7 +297,7 @@ class Generator:
 
             # If any lead car is at 50%, send the pacelaps command
             if max(lead_dist) >= 0.5:
-                logger.info("Sending pacelaps command")
+                logger.info(f"Sending pace laps command: {laps_under_sc - 1} lap(s) remaining")
                 self.command_sender.send_command(f"!p {laps_under_sc - 1}")
 
                 # Return True when pace laps are done
@@ -355,7 +358,7 @@ class Generator:
 
         # Check if class splitting is enabled
         if not self.master.settings.class_split_enabled:
-            logger.info("Class splits disabled, skipping")
+            logger.debug("Class splits disabled, skipping")
             return True
 
         # Check if we are one to green
@@ -401,16 +404,15 @@ class Generator:
         Args:
             message: The message to send with the yellow flag command
         """
-        logger.info("Deploying safety car")
+        # Increment the total safety car events
+        self.total_sc_events += 1
+        logger.info(f"Deploying safety car #{self.total_sc_events}: {message}")
 
         # Send yellow flag chat command
         self.command_sender.send_command(f"!y {message}")
 
         # Move to SC deployed state
         self.master.generator_state = GeneratorState.SAFETY_CAR_DEPLOYED
-
-        # Increment the total safety car events
-        self.total_sc_events += 1
 
         # Set the last safety car time
         self.last_sc_time = time.time()
@@ -445,7 +447,8 @@ class Generator:
             time.sleep(1)
 
         # Manage splitting classes
-        logger.info("Waiting to split the classes")
+        if self.master.settings.class_split_enabled:
+            logger.info("Checking if class split is needed")
         while True:
             # Update the current lap behind safety car
             self._get_current_lap_under_sc()
@@ -591,7 +594,7 @@ class Generator:
 
             # Run the loop in a separate thread
             if self.thread == None or not self.thread.is_alive():
-                logger.info("Starting the loop thread")
+                logger.info("Starting detection loop")
                 self.thread = threading.Thread(target=self._loop)
                 self.thread.start()
                 return True

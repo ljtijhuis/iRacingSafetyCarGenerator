@@ -125,6 +125,10 @@ The **Advanced Features** checkbox in the controls panel reveals additional opti
 
 - **Throw Double Yellows** - Manually trigger a safety car event while the generator is running.
 
+### Events Log
+
+The **Events Log** panel at the bottom of the window shows a real-time feed of important generator activity. This includes state transitions, incident detections (with car numbers), safety car deployments and trigger reasons, wave around commands, EOL commands, and pace lap signals. Log messages are colour-coded by severity (orange for warnings, red for errors). The same messages are also written to the log file in the `logs/` directory.
+
 ## Documentation
 
 This project includes documentation for different audiences:

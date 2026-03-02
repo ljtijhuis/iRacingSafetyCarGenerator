@@ -78,6 +78,12 @@ def drivers_to_wave_commands(drivers: List[Driver], pace_car_idx: int, eligible_
     eligible_cars.sort(key=lambda x: x[0])
     commands = [f"!w {car_number}" for _, car_number in eligible_cars]
 
+    if commands:
+        car_nums = ", ".join(f"#{cn}" for _, cn in eligible_cars)
+        logger.info(f"Wave around: {len(commands)} car(s) eligible: {car_nums}")
+    else:
+        logger.info("Wave around: no eligible cars found")
+
     return commands
 
 def _get_lapped_car_indices(drivers: List[Driver], pace_car_idx: int) -> List[int]:

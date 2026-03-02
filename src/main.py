@@ -5,6 +5,10 @@ import json
 import os
 
 from core.app import App
+from ui.events_log import EventsLogHandler
+
+# Module-level reference so the App can attach its panel later
+events_log_handler = EventsLogHandler(level=logging.INFO)
 
 
 def setup_logging():
@@ -25,6 +29,14 @@ def setup_logging():
     logging_conf["handlers"]["file"]["filename"] = logfile.replace("{current_datetime}", current_datetime)
 
     logging.config.dictConfig(logging_conf)
+
+    # Add the events log handler to all loggers that have the file handler,
+    # so INFO+ messages appear in the UI panel as well as the log file
+    events_log_handler.setFormatter(
+        logging.Formatter("%(asctime)s [%(levelname)s] %(message)s", datefmt="%H:%M:%S")
+    )
+    for logger_name in logging_conf.get("loggers", {}):
+        logging.getLogger(logger_name).addHandler(events_log_handler)
 
     # Log the start of the program
     logger.info("Program started")
@@ -48,7 +60,7 @@ def main(arguments):
 
     # Try to create and run the app, and log exceptions
     try:
-        app = App(arguments)
+        app = App(arguments, events_log_handler=events_log_handler)
         app.mainloop()
     except Exception as e:
         logging.exception("A fatal error has occurred")

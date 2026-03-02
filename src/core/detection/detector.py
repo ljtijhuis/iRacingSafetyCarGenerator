@@ -69,7 +69,8 @@ class Detector:
     
     def race_started(self, start_time: float):
         """Called when the race starts to set the start time for time-based calculations."""
-        logger.info(f"Race started at {start_time}, enabled detectors: {list(self.detectors.keys())}")
+        enabled = ", ".join(d.value for d in self.detectors.keys())
+        logger.info(f"Race started — enabled detectors: {enabled}")
         self.start_time = start_time 
 
     @staticmethod
@@ -129,11 +130,11 @@ class Detector:
             result = detector.detect()
             events[event_type] = result
             
-            # Log detection results
-            if result.has_drivers():
-                logger.info(f"{event_type} detector found {len(result.drivers)} drivers")
-            elif result.has_detected_flag():
-                logger.info(f"{event_type} detector triggered (flag=True)")
+            # Log detection results (detail is logged by individual detectors)
+            if result.has_drivers() and result.drivers:
+                logger.debug(f"{event_type} detector found {len(result.drivers)} drivers")
+            elif result.has_detected_flag() and result.detected_flag:
+                logger.debug(f"{event_type} detector triggered (flag=True)")
             
         logger.debug(f"Detection cycle complete, ran {len(events)} detectors")
         return BundledDetectedEvents.from_detector_results(events)

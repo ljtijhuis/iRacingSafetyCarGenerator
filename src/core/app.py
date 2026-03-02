@@ -8,6 +8,7 @@ from core import generator
 from core import tooltip
 from core.generator import GeneratorState
 from core.settings import Settings
+from ui.events_log import EventsLogPanel
 from util.state_utils import generator_state_messages, is_stopped_state
 from util.dev_utils import copy_sdk_data_to_clipboard, send_test_commands
 
@@ -15,11 +16,12 @@ logger = logging.getLogger(__name__)
 
 class App(tk.Tk):
     """Main application window for the safety car generator."""
-    def __init__(self, arguments):
+    def __init__(self, arguments, events_log_handler=None):
         """Initialize the main application window.
-        
+
         Args:
-            None
+            arguments: Parsed command-line arguments.
+            events_log_handler: Optional EventsLogHandler to attach the UI panel to.
         """
         logger.info("Initializing main application window")
         super().__init__()
@@ -46,8 +48,13 @@ class App(tk.Tk):
         # Set handler for closing main window event
         self.protocol('WM_DELETE_WINDOW', self.handle_delete_window)
 
-        # Create widgets
+        # Create widgets (including events log panel)
         self._create_widgets()
+
+        # Attach the events log handler to the UI panel so buffered and
+        # future log messages appear in the events log
+        if events_log_handler is not None:
+            events_log_handler.attach_panel(self.events_log_panel)
 
     # Advanced features toggle
     def _toggle_advanced_features(self):
@@ -100,6 +107,7 @@ class App(tk.Tk):
         self.rowconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
         self.rowconfigure(2, weight=1)
+        self.rowconfigure(3, weight=1)
 
         # Create Safety Car Types frame
         logger.debug("Creating Safety Car Types frame")
@@ -1234,6 +1242,18 @@ class App(tk.Tk):
                 pady=5
             )
 
+        # Create Events Log panel spanning the full width below the main panels
+        logger.debug("Creating events log panel")
+        self.events_log_panel = EventsLogPanel(self)
+        self.events_log_panel.grid(
+            row=3,
+            column=0,
+            columnspan=3,
+            sticky="nesw",
+            padx=5,
+            pady=5
+        )
+
         # Fill in the widgets with the settings from the config file
         logger.debug("Filling in widgets with settings from config file")
         self.var_random.set(self.settings.random_detector_enabled)
@@ -1404,7 +1424,10 @@ class App(tk.Tk):
     
     @generator_state.setter
     def generator_state(self, new_state):
+        old_state = self._generator_state
         self._generator_state = new_state
+        if old_state != new_state:
+            logger.info(f"State: {old_state.name} -> {new_state.name}")
         self.on_generator_state_change()
 
     def on_generator_state_change(self):

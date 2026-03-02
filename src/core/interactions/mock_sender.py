@@ -23,7 +23,7 @@ class MockSender:
         Args:
             command: The command to send. Should NOT include the {ENTER} character!
         """
-        logger.debug(f"Sending command: {command}")
+        logger.info(f"[Mock] Sending command: {command}")
 
         if delay > 0:
             logger.debug(f"Adding delay between chat command and send_message of: {delay}")

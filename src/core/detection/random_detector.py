@@ -60,7 +60,7 @@ class RandomDetector:
         result = rng <= current_chance
         
         if result:
-            logger.info(f"Random detector triggered: rng={rng:.6f} <= chance={current_chance:.6f} (base_chance={self.chance})")
+            logger.info(f"Random safety car triggered (probability: {self.chance*100:.1f}%)")
         else:
             logger.debug(f"Random detector not triggered: rng={rng:.6f} > chance={current_chance:.6f}")
             

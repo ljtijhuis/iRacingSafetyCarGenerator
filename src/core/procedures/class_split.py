@@ -111,6 +111,7 @@ def get_split_class_commands(drivers: list[Driver], pace_car_idx: int) -> list[s
     logger.info(f"Classes out of order: {classes_out_of_order}")
 
     commands = []
+    eol_cars = []
     add_rest = False
     for c in classes_sorted:
         current_class = c[0]
@@ -123,6 +124,8 @@ def get_split_class_commands(drivers: list[Driver], pace_car_idx: int) -> list[s
                 car_number = drivers[idx]["car_number"]
                 logger.debug(f"Adding EOL command for #{car_number} (class {current_class})")
                 commands.append(f"!eol {car_number} Splitting classes")
+                eol_cars.append(car_number)
 
-    logger.debug(f"Total split class commands: {len(commands)}")
+    car_nums = ", ".join(f"#{c}" for c in eol_cars)
+    logger.info(f"Class split: sending EOL for {len(commands)} car(s): {car_nums}")
     return commands

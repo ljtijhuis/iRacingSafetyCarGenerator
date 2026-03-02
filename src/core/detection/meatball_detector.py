@@ -65,7 +65,8 @@ class MeatballDetector:
                 )
 
         if meatball_drivers:
-            logger.info(f"Found {len(meatball_drivers)} cars with new meatball flag")
+            car_nums = ", ".join(f"#{d['car_number']}" for d in meatball_drivers)
+            logger.info(f"Meatball flag received by {len(meatball_drivers)} car(s): {car_nums}")
         else:
             logger.debug("No new meatball flag transitions")
 
